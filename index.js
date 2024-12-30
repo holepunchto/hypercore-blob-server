@@ -217,6 +217,10 @@ module.exports = class ServeBlobs {
     this.port = this.server.address().port
   }
 
+  refreshLink (link) {
+    return link.replace(/:\d+\//, ':' + this.port + '/')
+  }
+
   getLink (key, blob, opts = {}) {
     const {
       host = this.host,
