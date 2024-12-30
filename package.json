@@ -1,0 +1,40 @@
+{
+  "name": "hypercore-blob-server",
+  "version": "0.0.0",
+  "description": "HTTP server for streaming hypercore blobs",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "imports": {
+    "http": {
+      "bare": "bare-http1",
+      "default": "http"
+    }
+  },
+  "scripts": {
+    "test": "standard"
+  },
+  "dependencies": {
+    "bare-http1": "^4.0.2",
+    "compact-encoding": "^2.16.0",
+    "hypercore-byte-stream": "^2.0.1",
+    "hypercore-crypto": "^3.4.2",
+    "listen-async": "^1.0.0",
+    "streamx": "^2.21.1",
+    "z32": "^1.1.0"
+  },
+  "devDependencies": {
+    "standard": "^17.1.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/holepunchto/hypercore-blob-server.git"
+  },
+  "author": "Holepunch Inc.",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/hypercore-blob-server/issues"
+  },
+  "homepage": "https://github.com/holepunchto/hypercore-blob-server"
+}
