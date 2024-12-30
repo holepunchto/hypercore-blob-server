@@ -4,7 +4,9 @@ const listen = require('listen-async')
 const http = require('http')
 const crypto = require('hypercore-crypto')
 const ByteStream = require('hypercore-byte-stream')
+const getMimeType = require('get-mime-type')
 const { isEnded } = require('streamx')
+const resolveDriveFilename = require('./drive')
 
 const blobId = {
   preencode (state, b) {
@@ -87,7 +89,39 @@ module.exports = class ServeBlobs {
       return
     }
 
+    if (info.drive) {
+      this._ondrive(info, res)
+      return
+    }
+
     res.statusCode = 404
+    res.end()
+  }
+
+  async _ondrive (info, res) {
+    const core = this.store.get(info.drive.key)
+    res.on('close', () => core.close().catch(noop))
+
+    let result = null
+
+    try {
+      result = await resolveDriveFilename(core, info.drive.filename)
+    } catch {}
+
+    if (result === null) {
+      res.statusCode = 404
+      res.end()
+      return
+    }
+
+    const path = this.getLink(result.key, {
+      url: false,
+      blob: result.blob,
+      type: info.drive.type
+    })
+
+    res.statusCode = 307
+    res.setHeader('Location', path)
     res.end()
   }
 
@@ -95,7 +129,7 @@ module.exports = class ServeBlobs {
     const blob = info.blob
 
     res.setHeader('Accept-Ranges', 'bytes')
-    res.setHeader('Content-Type', 'video/mp4')
+    res.setHeader('Content-Type', blob.type)
 
     let start = 0
     let length = blob.id.byteLength
@@ -159,8 +193,10 @@ module.exports = class ServeBlobs {
 
   async _resume () {
     if (this.suspending) await this.suspending
-    if (this.server) await this._closeAll(true)
-    this.server.ref()
+    if (this.server !== null) {
+      await this._closeAll(true)
+      this.server.ref()
+    }
     return this._listen()
   }
 
@@ -168,11 +204,13 @@ module.exports = class ServeBlobs {
     return new Promise(resolve => {
       let waiting = 1
 
-      if (alsoServer) {
-        this.server.close(onclose)
-        waiting++
+      if (this.server !== null) {
+        if (alsoServer) {
+          this.server.close(onclose)
+          waiting++
+        }
+        this.server.unref()
       }
-      this.server.unref()
 
       for (const c of this.connections) {
         waiting++
@@ -221,15 +259,22 @@ module.exports = class ServeBlobs {
     return link.replace(/:\d+\//, ':' + this.port + '/')
   }
 
-  getLink (key, blob, opts = {}) {
+  getLink (key, opts = {}) {
     const {
       host = this.host,
       port = this.port,
       protocol = this.protocol,
-      mimetype = 'application/octet-stream',
+      filename = null,
+      blob = null,
+      url = true,
+      mimetype = filename ? getMimeType(filename) : 'application/octet-stream',
       mimeType = mimetype,
       type = mimeType
     } = opts
+
+    if (!blob && !filename) {
+      throw new Error('Must specific a filename or blob')
+    }
 
     const p = (protocol === 'http' && port === 80)
       ? ''
@@ -237,33 +282,76 @@ module.exports = class ServeBlobs {
         ? ''
         : ':' + port
 
-    const id = c.encode(blobId, blob)
+    const id = blob && c.encode(blobId, blob)
     const encodedType = encodeURIComponent(type)
     const token = this.token && '&token=' + this.token
+    const name = filename && encodeURI(filename.replace(/^\//, ''))
+    const path = id
+      ? `/blob?key=${z32.encode(key)}&id=${z32.encode(id)}&type=${encodedType}${token}`
+      : `/drive/${name}?key=${z32.encode(key)}&type=${encodedType}${token}`
 
-    return `${protocol}://${host}${p}/blob?key=${z32.encode(key)}&id=${z32.encode(id)}&type=${encodedType}${token}`
+    return url ? `${protocol}://${host}${p}${path}` : path
+  }
+}
+
+function decodeParams (url) {
+  const result = {
+    token: null,
+    key: null,
+    id: null,
+    type: 'application/octet-stream'
+  }
+
+  const parts = url.split('?')
+  if (parts.length < 2) return result
+
+  for (const p of parts[1].split('&')) {
+    if (p.startsWith('token=')) result.token = p.slice(6)
+    if (p.startsWith('key=')) result.key = z32.decode(p.slice(4))
+    if (p.startsWith('id=')) result.id = c.decode(blobId, z32.decode(p.slice(3)))
+    if (p.startsWith('type=')) result.type = decodeURIComponent(p.slice(5))
+  }
+
+  return result
+}
+
+function decodeDriveRequest (req) {
+  try {
+    const { token, key, type } = decodeParams(req.url)
+    const filename = decodeURI(req.url.slice('/drive'.length).split('?')[0])
+
+    const info = {
+      head: req.method === 'HEAD',
+      token,
+      drive: {
+        key,
+        filename,
+        type
+      },
+      blob: null
+    }
+
+    if (!info.drive.key || !filename || filename === '/') return null
+    return info
+  } catch {
+    return null
   }
 }
 
 function decodeBlobRequest (req) {
   try {
+    const { token, key, id, type } = decodeParams(req.url)
+
     const info = {
       head: req.method === 'HEAD',
-      token: null,
+      token,
       drive: null,
       blob: {
-        key: null,
-        id: null,
-        type: 'application/octet-stream',
+        key,
+        id,
+        type,
         range: parseRange(req.headers.range)
       }
-    }
-
-    for (const p of req.url.split('?')[1].split('&')) {
-      if (p.startsWith('token=')) info.token = p.slice(6)
-      if (p.startsWith('key=')) info.blob.key = z32.decode(p.slice(4))
-      if (p.startsWith('id=')) info.blob.id = c.decode(blobId, z32.decode(p.slice(3)))
-      if (p.startsWith('type=')) info.blob.type = decodeURIComponent(p.slice(5))
     }
 
     if (!info.blob.key || !info.blob.id) return null
@@ -274,7 +362,8 @@ function decodeBlobRequest (req) {
 }
 
 function decodeRequest (req) {
-  if (req.url.startsWith('/blob?')) return decodeBlobRequest(req)
+  if (req.url.startsWith('/blob')) return decodeBlobRequest(req)
+  if (req.url.startsWith('/drive')) return decodeDriveRequest(req)
   return null
 }
 
@@ -287,3 +376,5 @@ function parseRange (range) {
     end: Number(r[1] === '' ? -1 : r[1])
   }
 }
+
+function noop () {}
