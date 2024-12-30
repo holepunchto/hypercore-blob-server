@@ -19,7 +19,15 @@ const server = new BlobServer(store, options)
 await server.listen()
 
 // To get a link to a blob to
-const link = server.getLink(key, blobId)
+const link = server.getLink(key, {
+  blob: blobId,
+  type: 'image/jpeg'
+})
+
+// supports drive lookups also
+const link = server.getLink(key, {
+  filename: '/foo.js'
+})
 ```
 
 ## License
