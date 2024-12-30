@@ -107,7 +107,7 @@ module.exports = class ServeBlobs {
       length = end - start + 1
 
       res.statusCode = 206
-      res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + length)
+      res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + blob.id.byteLength)
     }
 
     res.setHeader('Content-Length', '' + length)
@@ -227,7 +227,8 @@ module.exports = class ServeBlobs {
       port = this.port,
       protocol = this.protocol,
       mimetype = 'application/octet-stream',
-      mimeType = mimetype
+      mimeType = mimetype,
+      type = mimeType
     } = opts
 
     const p = (protocol === 'http' && port === 80)
@@ -237,10 +238,10 @@ module.exports = class ServeBlobs {
         : ':' + port
 
     const id = c.encode(blobId, blob)
-    const type = encodeURIComponent(mimeType)
+    const encodedType = encodeURIComponent(type)
     const token = this.token && '&token=' + this.token
 
-    return `${protocol}://${host}${p}/blob?key=${z32.encode(key)}&id=${z32.encode(id)}&type=${type}${token}`
+    return `${protocol}://${host}${p}/blob?key=${z32.encode(key)}&id=${z32.encode(id)}&type=${encodedType}${token}`
   }
 }
 
