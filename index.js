@@ -117,7 +117,7 @@ module.exports = class ServeBlobs {
     const path = this.getLink(result.key, {
       url: false,
       blob: result.blob,
-      type: info.drive.type
+      type: info.drive.type || getMimeType(info.drive.filename)
     })
 
     res.statusCode = 307
