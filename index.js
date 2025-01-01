@@ -273,7 +273,7 @@ module.exports = class ServeBlobs {
     } = opts
 
     if (!blob && !filename) {
-      throw new Error('Must specific a filename or blob')
+      throw new Error('Must specify a filename or blob')
     }
 
     const p = (protocol === 'http' && port === 80)
