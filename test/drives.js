@@ -1,15 +1,15 @@
 const test = require('brittle')
 const RAM = require('random-access-memory')
 const Corestore = require('corestore')
-const { tmpHyperdrive, tmpServeBlobs, request } = require('./helpers')
+const { testHyperdrive, testServeBlobs, request } = require('./helpers')
 
 test('can get file from hyperdrive', async function (t) {
   const store = new Corestore(RAM)
 
-  const drive = tmpHyperdrive(t, store)
+  const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
 
-  const serve = tmpServeBlobs(t, store)
+  const serve = testServeBlobs(t, store)
   await serve.listen()
 
   const res = await request(serve, drive.key, { filename: '/file.txt' })

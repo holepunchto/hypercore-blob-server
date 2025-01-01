@@ -4,8 +4,8 @@ const Hyperdrive = require('hyperdrive')
 
 module.exports = {
   request,
-  tmpServeBlobs,
-  tmpHyperdrive
+  testServeBlobs,
+  testHyperdrive
 }
 
 function get (link) {
@@ -41,13 +41,13 @@ async function request (serve, key, opts) {
   return get(link)
 }
 
-function tmpServeBlobs (t, store, opts) {
+function testServeBlobs (t, store, opts) {
   const serve = new ServeBlobs(store, opts)
   t.teardown(() => serve.close())
   return serve
 }
 
-function tmpHyperdrive (t, store) {
+function testHyperdrive (t, store) {
   const drive = new Hyperdrive(store)
   t.teardown(() => drive.close())
   return drive

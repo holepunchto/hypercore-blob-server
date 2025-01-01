@@ -1,7 +1,7 @@
 const test = require('brittle')
 const RAM = require('random-access-memory')
 const Corestore = require('corestore')
-const { tmpServeBlobs, request } = require('./helpers')
+const { testServeBlobs, request } = require('./helpers')
 
 test('can get blob from hypercore', async function (t) {
   const store = new Corestore(RAM)
@@ -10,7 +10,7 @@ test('can get blob from hypercore', async function (t) {
 
   await core.append([Buffer.from('Hello'), Buffer.from('World')])
 
-  const serve = tmpServeBlobs(t, store)
+  const serve = testServeBlobs(t, store)
   await serve.listen()
 
   const res = await request(serve, core.key, {
