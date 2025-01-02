@@ -26,6 +26,7 @@ test('can get blob from hypercore - multiple blocks', async function (t) {
   blobs.blockSize = 4 // force multiple blocks
 
   const id = await blobs.put(Buffer.from('Hello World'))
+  t.is(id.blockLength, 3) // 3 blocks
 
   const serve = testServeBlobs(t, store)
   await serve.listen()
