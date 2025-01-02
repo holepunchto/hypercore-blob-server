@@ -82,7 +82,7 @@ test('handle out of range header end', async function (t) {
   t.is(res.data, 'Hello World')
 })
 
-test.solo('handle range header without end', async function (t) {
+test('handle range header without end', async function (t) {
   const store = new Corestore(RAM)
 
   const blobs = testHyperblobs(t, store)
