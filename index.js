@@ -138,7 +138,8 @@ module.exports = class ServeBlobs {
       const end = blob.range.end === -1 ? blob.id.byteLength - 1 : blob.range.end
 
       start = blob.range.start
-      length = Math.min(blob.id.byteLength, end - start + 1)
+      length = end - start + 1
+      // length = Math.min(blob.id.byteLength, end - start + 1)
 
       res.statusCode = 206
       res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + blob.id.byteLength)
