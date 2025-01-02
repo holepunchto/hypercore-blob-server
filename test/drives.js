@@ -66,7 +66,7 @@ test('sending request while suspended', async function (t) {
   }
 })
 
-test.solo('sending request after resume', async function (t) {
+test('sending request after resume', async function (t) {
   const store = new Corestore(RAM)
 
   const drive = testHyperdrive(t, store)
