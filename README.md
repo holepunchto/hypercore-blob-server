@@ -58,12 +58,23 @@ Generates the url used to fetch data
 `options`:
 ```js
 {
+  host // custom host
+  port // custom port
+  protocol: 'http' | 'https',
   filename | blob
 }
 ```
 `filename` - hyperdrive filename
 
 `blob` - blob ID in the form of `{ blockOffset, blockLength, byteOffset, byteLength}`
+
+#### `await server.suspend()`
+
+Let the instance know you wanna suspend so it can make relevant changes.
+
+#### `await server.resume()`
+
+Let the instance know you wanna resume from suspension. Will rebind the server etc.
 
 ## License
 
