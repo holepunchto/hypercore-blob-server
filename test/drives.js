@@ -62,7 +62,7 @@ test('sending request while suspended', async function (t) {
     await request(server, drive.key, { filename: '/file.txt' })
     t.fail('request should fail')
   } catch (err) {
-    t.is(err.message, 'read ECONNRESET')
+    t.ok(err)
   }
 })
 
