@@ -54,14 +54,18 @@ Listen to http requests.
 
 `key` - hypercore or hyperdrive key
 
-Available `options`:
+`options`:
 ```js
 {
-  port = 49833,
-  host = '127.0.0.1',
-  token = crypto.randomBytes(32),
-  protocol = 'http',
-  anyPort = true
+  host = this.host,
+  port = this.port,
+  protocol = this.protocol,
+  filename = null,
+  blob = null,
+  url = true,
+  mimetype = filename ? getMimeType(filename) : 'application/octet-stream',
+  mimeType = mimetype,
+  type = mimeType
 }
 ```
 

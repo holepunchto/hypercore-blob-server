@@ -42,8 +42,8 @@ function get (link, range = null) {
   })
 }
 
-async function request (serve, key, opts) {
-  const link = serve.getLink(key, opts)
+async function request (server, key, opts) {
+  const link = server.getLink(key, opts)
 
   return get(link, opts.range)
 }

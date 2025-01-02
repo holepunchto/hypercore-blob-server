@@ -1,7 +1,7 @@
 const test = require('brittle')
 const RAM = require('random-access-memory')
 const Corestore = require('corestore')
-const { testHyperdrive, testBlobServer, request } = require('./helpers')
+const { testHyperdrive, testBlobServer, request, get } = require('./helpers')
 
 test('can get file from hyperdrive', async function (t) {
   const store = new Corestore(RAM)
@@ -27,6 +27,22 @@ test('404 if file not found', async function (t) {
   await server.listen()
 
   const res = await request(server, drive.key, { filename: '/testing.txt' })
+  t.is(res.status, 404)
+  t.is(res.data, '')
+})
+
+test('404 if token is invalid', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  const link = server.getLink(drive.key, { filename: '/testing.txt' })
+  const res = await get(link.replace('token=', 'token=breakme'))
+
   t.is(res.status, 404)
   t.is(res.data, '')
 })
