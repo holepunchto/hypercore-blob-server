@@ -77,7 +77,7 @@ test.solo('handle out of range header end', async function (t) {
   const serve = testServeBlobs(t, store)
   await serve.listen()
 
-  const res = await request(serve, blobs.core.key, { blob: id, range: 'bytes=0-11' })
+  const res = await request(serve, blobs.core.key, { blob: id, range: 'bytes=0-20' })
   t.is(res.status, 206)
   t.is(res.data, 'Hello World')
 })
