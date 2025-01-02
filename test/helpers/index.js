@@ -1,18 +1,21 @@
 const http = require('http')
 const ServeBlobs = require('../../index.js')
 const Hyperdrive = require('hyperdrive')
+const Hyperblobs = require('hyperblobs')
 
 module.exports = {
   request,
   testServeBlobs,
+  testHyperblobs,
   testHyperdrive
 }
 
-function get (link) {
+function get (link, range = null) {
   return new Promise((resolve, reject) => {
     const req = http.get(link, {
       headers: {
-        Connection: 'close'
+        Connection: 'close',
+        range
       }
     })
 
@@ -38,13 +41,20 @@ function get (link) {
 async function request (serve, key, opts) {
   const link = serve.getLink(key, opts)
 
-  return get(link)
+  return get(link, opts.range)
 }
 
 function testServeBlobs (t, store, opts) {
   const serve = new ServeBlobs(store, opts)
   t.teardown(() => serve.close())
   return serve
+}
+
+function testHyperblobs (t, store) {
+  const core = store.get({ name: 'test' })
+  const blobs = new Hyperblobs(core)
+  t.teardown(() => blobs.close())
+  return blobs
 }
 
 function testHyperdrive (t, store) {
