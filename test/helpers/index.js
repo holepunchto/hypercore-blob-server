@@ -33,6 +33,12 @@ function get (link, range = null) {
         res.on('end', function () {
           resolve({ status: res.statusCode, data: buf })
         })
+        res.on('close', function () {
+          resolve({ status: res.statusCode, data: buf })
+        })
+        res.on('error', (error) => {
+          console.error(error)
+        })
       }
     })
   })
