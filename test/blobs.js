@@ -67,7 +67,7 @@ test('can get a partial blob from hypercore, but request the whole data', async 
   t.is(res.data, 'Hello World')
 })
 
-test.solo('handle out of range header end', async function (t) {
+test('handle out of range header end', async function (t) {
   const store = new Corestore(RAM)
 
   const blobs = testHyperblobs(t, store)
