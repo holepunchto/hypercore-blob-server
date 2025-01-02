@@ -30,6 +30,41 @@ const link = server.getLink(key, {
 })
 ```
 
+## API
+
+#### `const server = new BlobServer(store, options)`
+
+`store` - Corestore instance
+
+`options`:
+```js
+{
+  port = 49833,
+  host = '127.0.0.1',
+  token = crypto.randomBytes(32),
+  protocol = 'http',
+  anyPort = true
+}
+```
+
+#### `await server.listen()`
+Listen to http requests.
+
+#### `const link = server.getLink(key, options)`
+
+`key` - hypercore or hyperdrive key
+
+Available `options`:
+```js
+{
+  port = 49833,
+  host = '127.0.0.1',
+  token = crypto.randomBytes(32),
+  protocol = 'http',
+  anyPort = true
+}
+```
+
 ## License
 
 Apache-2.0
