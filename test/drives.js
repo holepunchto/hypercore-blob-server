@@ -46,3 +46,39 @@ test('404 if token is invalid', async function (t) {
   t.is(res.status, 404)
   t.is(res.data, '')
 })
+
+test('sending request while suspended', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  await server.suspend()
+
+  try {
+    await request(server, drive.key, { filename: '/file.txt' })
+    t.fail('request should fail')
+  } catch (err) {
+    t.is(err.message, 'read ECONNRESET')
+  }
+})
+
+test.solo('sending request after resume', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  await server.suspend()
+  await server.resume()
+
+  const res = await request(server, drive.key, { filename: '/file.txt' })
+  t.is(res.status, 200)
+  t.is(res.data, 'Here')
+})

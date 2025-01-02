@@ -60,7 +60,7 @@ module.exports = class ServeBlobs {
 
   _onconnection (socket) {
     if (this.suspending) {
-      this.connection.destroy()
+      socket.destroy()
       return
     }
 
@@ -193,6 +193,7 @@ module.exports = class ServeBlobs {
 
   async _resume () {
     if (this.suspending) await this.suspending
+    this.suspending = null
     if (this.server !== null) {
       await this._closeAll(true)
       this.server.ref()

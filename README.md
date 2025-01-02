@@ -39,35 +39,31 @@ const link = server.getLink(key, {
 `options`:
 ```js
 {
-  port = 49833,
-  host = '127.0.0.1',
-  token = crypto.randomBytes(32),
-  protocol = 'http',
-  anyPort = true
+  port // defaults to 49833,
+  host // defaults to '127.0.0.1',
+  token // server token
+  protocol // 'http' | 'https'
 }
 ```
 
 #### `await server.listen()`
-Listen to http requests.
+Listen to requests
 
 #### `const link = server.getLink(key, options)`
+
+Generates the url used to fetch data
 
 `key` - hypercore or hyperdrive key
 
 `options`:
 ```js
 {
-  host = this.host,
-  port = this.port,
-  protocol = this.protocol,
-  filename = null,
-  blob = null,
-  url = true,
-  mimetype = filename ? getMimeType(filename) : 'application/octet-stream',
-  mimeType = mimetype,
-  type = mimeType
+  filename | blob
 }
 ```
+`filename` - hyperdrive filename
+
+`blob` - blob ID in the form of `{ blockOffset, blockLength, byteOffset, byteLength}`
 
 ## License
 
