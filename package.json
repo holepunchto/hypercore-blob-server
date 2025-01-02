@@ -22,7 +22,7 @@
     "get-mime-type": "^1.0.2",
     "hyperbee": "^2.20.7",
     "hypercore": "^10.38.1",
-    "hypercore-byte-stream": "file:../hypercore-byte-stream",
+    "hypercore-byte-stream": "^2.0.1",
     "hypercore-crypto": "^3.4.2",
     "listen-async": "^1.0.0",
     "streamx": "^2.21.1",
