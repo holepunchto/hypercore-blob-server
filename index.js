@@ -60,7 +60,7 @@ module.exports = class ServeBlobs {
 
   _onconnection (socket) {
     if (this.suspending) {
-      this.connection.destroy()
+      socket.destroy()
       return
     }
 
@@ -193,6 +193,7 @@ module.exports = class ServeBlobs {
 
   async _resume () {
     if (this.suspending) await this.suspending
+    this.suspending = null
     if (this.server !== null) {
       await this._closeAll(true)
       this.server.ref()
@@ -273,7 +274,7 @@ module.exports = class ServeBlobs {
     } = opts
 
     if (!blob && !filename) {
-      throw new Error('Must specific a filename or blob')
+      throw new Error('Must specify a filename or blob')
     }
 
     const p = (protocol === 'http' && port === 80)
