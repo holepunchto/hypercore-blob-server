@@ -67,7 +67,7 @@ test('can get a partial blob from hypercore, but request the whole data', async 
   t.is(res.data, 'Hello World')
 })
 
-test('can get a partial blob from hypercore, out of range', async function (t) {
+test('handle out of range header end', async function (t) {
   const store = new Corestore(RAM)
 
   const blobs = testHyperblobs(t, store)
@@ -79,5 +79,35 @@ test('can get a partial blob from hypercore, out of range', async function (t) {
 
   const res = await request(serve, blobs.core.key, { blob: id, range: 'bytes=0-11' })
   t.is(res.status, 206)
+  t.is(res.data, 'Hello World')
+})
+
+test.solo('handle range header without end', async function (t) {
+  const store = new Corestore(RAM)
+
+  const blobs = testHyperblobs(t, store)
+
+  const id = await blobs.put(Buffer.from('Hello World'))
+
+  const serve = testServeBlobs(t, store)
+  await serve.listen()
+
+  const res = await request(serve, blobs.core.key, { blob: id, range: 'bytes=2-' })
+  t.is(res.status, 206)
+  t.is(res.data, 'llo World')
+})
+
+test('handle invalid range header', async function (t) {
+  const store = new Corestore(RAM)
+
+  const blobs = testHyperblobs(t, store)
+
+  const id = await blobs.put(Buffer.from('Hello World'))
+
+  const serve = testServeBlobs(t, store)
+  await serve.listen()
+
+  const res = await request(serve, blobs.core.key, { blob: id, range: 'testing' })
+  t.is(res.status, 200)
   t.is(res.data, 'Hello World')
 })
