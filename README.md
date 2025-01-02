@@ -68,6 +68,14 @@ Generates the url used to fetch data
 
 `blob` - blob ID in the form of `{ blockOffset, blockLength, byteOffset, byteLength}`
 
+When downloading blobs, you can set the `Range` header to download sections of data, implement pause/resume download functionality. Offsets are zero-indexed & inclusive
+
+```
+Range: bytes=<start>-<end>
+Range: bytes=0-300
+Range: bytes=2-
+```
+
 #### `await server.suspend()`
 
 Let the instance know you wanna suspend so it can make relevant changes.
