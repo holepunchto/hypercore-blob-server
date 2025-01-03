@@ -96,14 +96,16 @@ module.exports = class ServeBlobs {
       return
     }
 
-    if (info.blob) {
-      this._onblob(resolved, info, res)
-      return
-    }
+    if (resolved) {
+      if (info.blob) {
+        this._onblob(resolved, info, res)
+        return
+      }
 
-    if (info.drive) {
-      this._ondrive(resolved, info, res)
-      return
+      if (info.drive) {
+        this._ondrive(resolved, info, res)
+        return
+      }
     }
 
     res.statusCode = 404
