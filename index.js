@@ -39,7 +39,8 @@ module.exports = class ServeBlobs {
       address = host === '127.0.0.1' ? '127.0.0.1' : '0.0.0.0',
       token = crypto.randomBytes(32),
       protocol = 'http',
-      anyPort = true
+      anyPort = true,
+      resolve = defaultResolve
     } = opts
 
     this.store = store
@@ -51,6 +52,7 @@ module.exports = class ServeBlobs {
     this.protocol = protocol
     this.server = null
     this.connections = new Set()
+    this.resolve = resolve
 
     this.listening = null
     this.suspending = null
@@ -68,7 +70,7 @@ module.exports = class ServeBlobs {
     socket.on('close', () => this.connections.delete(socket))
   }
 
-  _onrequest (req, res) {
+  async _onrequest (req, res) {
     if (req.method !== 'HEAD' && req.method !== 'GET') {
       req.socket.destroy()
       req.statusCode = 400
@@ -84,13 +86,23 @@ module.exports = class ServeBlobs {
       return
     }
 
+    let resolved = null
+
+    try {
+      resolved = await this.resolve(info.blob ? info.blob.key : info.drive.key)
+    } catch {
+      res.statusCode = 400
+      res.end()
+      return
+    }
+
     if (info.blob) {
-      this._onblob(info, res)
+      this._onblob(resolved, info, res)
       return
     }
 
     if (info.drive) {
-      this._ondrive(info, res)
+      this._ondrive(resolved, info, res)
       return
     }
 
@@ -98,8 +110,19 @@ module.exports = class ServeBlobs {
     res.end()
   }
 
-  async _ondrive (info, res) {
-    const core = this.store.get(info.drive.key)
+  async _ondrive ({ key, encryptionKey }, info, res) {
+    const core = this.store.get(key)
+
+    if (encryptionKey) {
+      try {
+        await core.setEncryptionKey(encryptionKey)
+      } catch {
+        res.statusCode = 400
+        res.end()
+        return
+      }
+    }
+
     res.on('close', () => core.close().catch(noop))
 
     let result = null
@@ -125,7 +148,7 @@ module.exports = class ServeBlobs {
     res.end()
   }
 
-  _onblob (info, res) {
+  async _onblob ({ key, encryptionKey }, info, res) {
     const blob = info.blob
 
     res.setHeader('Accept-Ranges', 'bytes')
@@ -151,7 +174,18 @@ module.exports = class ServeBlobs {
       return
     }
 
-    const core = this.store.get({ key: blob.key })
+    const core = this.store.get(key)
+
+    if (encryptionKey) {
+      try {
+        await core.setEncryptionKey(encryptionKey)
+      } catch {
+        res.statusCode = 400
+        res.end()
+        return
+      }
+    }
+
     const rs = new ByteStream(core, blob.id, { start, length })
 
     rs.on('error', teardown)
@@ -365,6 +399,10 @@ function decodeBlobRequest (req) {
   } catch {
     return null
   }
+}
+
+function defaultResolve (key) {
+  return { key, encryptionKey: null }
 }
 
 function decodeRequest (req) {
