@@ -105,7 +105,7 @@ module.exports = class ServeBlobs {
     let result = null
 
     try {
-      result = await resolveDriveFilename(core, info.drive.filename)
+      result = await resolveDriveFilename(core, info.drive.filename, info.drive.version)
     } catch {}
 
     if (result === null) {
@@ -266,6 +266,7 @@ module.exports = class ServeBlobs {
       port = this.port,
       protocol = this.protocol,
       filename = null,
+      version = 0,
       blob = null,
       url = true,
       mimetype = filename ? getMimeType(filename) : 'application/octet-stream',
@@ -285,11 +286,12 @@ module.exports = class ServeBlobs {
 
     const id = blob && c.encode(blobId, blob)
     const encodedType = encodeURIComponent(type)
-    const token = this.token && '&token=' + this.token
+    const token = this.token ? '&token=' + this.token : ''
+    const v = version ? '&version=' + version : ''
     const name = filename && encodeURI(filename.replace(/^\//, ''))
     const path = id
       ? `/blob?key=${z32.encode(key)}&id=${z32.encode(id)}&type=${encodedType}${token}`
-      : `/drive/${name}?key=${z32.encode(key)}&type=${encodedType}${token}`
+      : `/drive/${name}?key=${z32.encode(key)}&type=${encodedType}${token}${v}`
 
     return url ? `${protocol}://${host}${p}${path}` : path
   }
@@ -300,7 +302,8 @@ function decodeParams (url) {
     token: null,
     key: null,
     id: null,
-    type: 'application/octet-stream'
+    type: 'application/octet-stream',
+    version: 0
   }
 
   const parts = url.split('?')
@@ -311,6 +314,7 @@ function decodeParams (url) {
     if (p.startsWith('key=')) result.key = z32.decode(p.slice(4))
     if (p.startsWith('id=')) result.id = c.decode(blobId, z32.decode(p.slice(3)))
     if (p.startsWith('type=')) result.type = decodeURIComponent(p.slice(5))
+    if (p.startsWith('version=')) result.version = Number(p.slice(8))
   }
 
   return result
@@ -318,7 +322,7 @@ function decodeParams (url) {
 
 function decodeDriveRequest (req) {
   try {
-    const { token, key, type } = decodeParams(req.url)
+    const { token, key, type, version } = decodeParams(req.url)
     const filename = decodeURI(req.url.slice('/drive'.length).split('?')[0])
 
     const info = {
@@ -326,6 +330,7 @@ function decodeDriveRequest (req) {
       token,
       drive: {
         key,
+        version,
         filename,
         type
       },

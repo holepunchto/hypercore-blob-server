@@ -17,6 +17,23 @@ test('can get file from hyperdrive', async function (t) {
   t.is(res.data, 'Here')
 })
 
+test('can get versioned file from hyperdrive', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+  const v = drive.version
+
+  await drive.put('/file.txt', 'nope')
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  const res = await request(server, drive.key, { filename: '/file.txt', version: v })
+  t.is(res.status, 200)
+  t.is(res.data, 'Here')
+})
+
 test('404 if file not found', async function (t) {
   const store = new Corestore(RAM)
 

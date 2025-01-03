@@ -10,8 +10,8 @@ const [BLOBS] = crypto.namespace('hyperdrive', 1)
 
 module.exports = resolveDriveFilename
 
-async function resolveDriveFilename (core, key) {
-  const bee = new Hyperbee(core, { valueEncoding: 'json' })
+async function resolveDriveFilename (core, key, version) {
+  const bee = new Hyperbee(core, { valueEncoding: 'json', checkout: version })
 
   let entry = null
   try {
