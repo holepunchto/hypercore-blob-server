@@ -1,4 +1,5 @@
 const test = require('brittle')
+const b4a = require('b4a')
 const RAM = require('random-access-memory')
 const Corestore = require('corestore')
 const { testBlobServer, request, testHyperblobs } = require('./helpers')
@@ -17,6 +18,26 @@ test('can get blob from hypercore', async function (t) {
 
   t.is(res.status, 200)
   t.is(res.data, 'Hello World')
+})
+
+test('can get encrypted blob from hypercore', async function (t) {
+  const store = new Corestore(RAM)
+
+  const blobs = testHyperblobs(t, store)
+
+  const id = await blobs.put(Buffer.from('Hello World'))
+
+  const server = testBlobServer(t, store, {
+    resolve: function (key) {
+      return { key, encryptionKey: b4a.alloc(32).fill('a') }
+    }
+  })
+  await server.listen()
+
+  const res = await request(server, blobs.core.key, { blob: id })
+
+  t.is(res.status, 200)
+  t.absent(res.data.includes('Hello Wolrd'))
 })
 
 test('can get blob from hypercore - multiple blocks', async function (t) {
