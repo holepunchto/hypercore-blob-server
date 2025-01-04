@@ -61,8 +61,8 @@ function testHyperblobs (t, store) {
   return blobs
 }
 
-function testHyperdrive (t, store) {
-  const drive = new Hyperdrive(store)
+function testHyperdrive (t, store, opts) {
+  const drive = new Hyperdrive(store, opts)
   t.teardown(() => drive.close())
   return drive
 }

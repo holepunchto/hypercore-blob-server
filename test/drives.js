@@ -101,10 +101,10 @@ test('sending request after resume', async function (t) {
   t.is(res.data, 'Here')
 })
 
-test.solo('can get encrypted blob from hyperdrive', async function (t) {
+test('can get encrypted blob from hyperdrive', async function (t) {
   const store = new Corestore(RAM)
 
-  const drive = testHyperdrive(t, store)
+  const drive = testHyperdrive(t, store, { encryptionKey: b4a.alloc(32) })
   await drive.put('/file.txt', 'Here')
 
   const server = testBlobServer(t, store, {
