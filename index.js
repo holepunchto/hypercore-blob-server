@@ -31,7 +31,7 @@ const blobId = {
   }
 }
 
-module.exports = class ServeBlobs {
+module.exports = class HypercoreBlobServer {
   constructor (store, opts = {}) {
     const {
       port = 49833,
@@ -330,6 +330,31 @@ module.exports = class ServeBlobs {
       : `/drive/${name}?key=${z32.encode(key)}&type=${encodedType}${token}${v}`
 
     return url ? `${protocol}://${host}${p}${path}` : path
+  }
+
+  async clear (key, opts = {}) {
+    const { blob = null, filename = null, version = 0 } = opts
+
+    if (!blob && !filename) {
+      throw new Error('Must specify a filename or blob')
+    }
+
+    const core = this.store.get({ key, wait: false, active: false })
+
+    if (blob) {
+      await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
+      await core.close()
+      return
+    }
+
+    let result = null
+    try {
+      result = await resolveDriveFilename(core, filename, version)
+    } catch {}
+
+    await core.close()
+
+    if (result !== null) await this.clear(result.key, { blob: result.blob })
   }
 }
 
