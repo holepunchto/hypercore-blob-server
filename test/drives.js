@@ -1,4 +1,5 @@
 const test = require('brittle')
+const b4a = require('b4a')
 const RAM = require('random-access-memory')
 const Corestore = require('corestore')
 const { testHyperdrive, testBlobServer, request, get } = require('./helpers')
@@ -94,6 +95,24 @@ test('sending request after resume', async function (t) {
 
   await server.suspend()
   await server.resume()
+
+  const res = await request(server, drive.key, { filename: '/file.txt' })
+  t.is(res.status, 200)
+  t.is(res.data, 'Here')
+})
+
+test('can get encrypted blob from hyperdrive', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store, { encryptionKey: b4a.alloc(32) })
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store, {
+    resolve: function (key) {
+      return { key, encryptionKey: b4a.alloc(32) }
+    }
+  })
+  await server.listen()
 
   const res = await request(server, drive.key, { filename: '/file.txt' })
   t.is(res.status, 200)
