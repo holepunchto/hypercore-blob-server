@@ -118,3 +118,20 @@ test('can get encrypted blob from hyperdrive', async function (t) {
   t.is(res.status, 200)
   t.is(res.data, 'Here')
 })
+
+test('can select a file for full download', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store, { encryptionKey: b4a.alloc(32) })
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store, {
+    resolve: function (key) {
+      return { key, encryptionKey: b4a.alloc(32) }
+    }
+  })
+  await server.listen()
+
+  const dl = server.download(drive.key, { filename: '/file.txt' })
+  await dl.done()
+})

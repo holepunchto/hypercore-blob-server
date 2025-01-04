@@ -24,6 +24,7 @@
     "hypercore": "^10.38.1",
     "hypercore-byte-stream": "^2.0.1",
     "hypercore-crypto": "^3.4.2",
+    "hypercore-id-encoding": "^1.3.0",
     "listen-async": "^1.0.0",
     "streamx": "^2.21.1",
     "sub-encoder": "^2.1.3",

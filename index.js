@@ -1,5 +1,6 @@
 const c = require('compact-encoding')
 const z32 = require('z32')
+const HypercoreID = require('hypercore-id-encoding')
 const listen = require('listen-async')
 const http = require('http')
 const crypto = require('hypercore-crypto')
@@ -27,6 +28,82 @@ const blobId = {
       blockLength: c.uint.decode(state),
       byteOffset: c.uint.decode(state),
       byteLength: c.uint.decode(state)
+    }
+  }
+}
+
+class BlobDownloader {
+  constructor (server, key, opts = {}) {
+    const { blob = null, filename = null, version = 0 } = opts
+
+    if (!blob && !filename) {
+      throw new Error('Must specify a filename or blob')
+    }
+
+    this.server = server
+    this.key = key
+    this.blob = blob
+    this.filename = filename
+    this.version = version
+    this.core = null
+    this.range = null
+
+    this.opening = this._open()
+    this.opening.catch(noop)
+  }
+
+  async _open () {
+    await this._getBlob()
+    if (!this.core || !this.blob) return
+    this.range = this.core.download({
+      start: this.blob.blockOffset,
+      length: this.blob.blockLength
+    })
+  }
+
+  async done () {
+    await this.opening
+    await this.range.done()
+    await this.close()
+  }
+
+  async close () {
+    if (this.core) this.core.close()
+
+    try {
+      await this.opening
+    } catch {}
+
+    if (this.core) {
+      await this.core.close()
+      this.core = null
+    }
+
+    if (this.range) {
+      this.range.destroy()
+      this.range = null
+    }
+  }
+
+  async _getBlob () {
+    const core = await this.server._getCore(this.key, true)
+    if (core === null) return
+
+    this.core = core
+    if (this.blob) return
+
+    let result = null
+    try {
+      result = await resolveDriveFilename(this.core, this.filename, this.version)
+    } catch {}
+
+    await this.core.close()
+
+    if (result !== null) {
+      this.core = await this.server._getCore(result.key, true)
+      this.blob = result.blob
+    } else {
+      this.core = null
     }
   }
 }
@@ -70,6 +147,24 @@ module.exports = class HypercoreBlobServer {
     socket.on('close', () => this.connections.delete(socket))
   }
 
+  async _getCore (k, active) {
+    try {
+      const resolved = await this.resolve(k)
+      if (!resolved) return null
+
+      const { key = k, encryptionKey } = resolved
+      const core = this.store.get({ key, active, wait: active })
+
+      if (encryptionKey) {
+        await core.setEncryptionKey(encryptionKey)
+      }
+
+      return core
+    } catch {
+      return null
+    }
+  }
+
   async _onrequest (req, res) {
     if (req.method !== 'HEAD' && req.method !== 'GET') {
       req.socket.destroy()
@@ -86,43 +181,27 @@ module.exports = class HypercoreBlobServer {
       return
     }
 
-    let resolved = null
-
-    try {
-      resolved = await this.resolve(info.blob ? info.blob.key : info.drive.key)
-    } catch {
-      res.statusCode = 400
-      res.end()
+    if (info.blob) {
+      this._onblob(info, res)
       return
     }
 
-    if (resolved) {
-      if (info.blob) {
-        this._onblob(resolved, info, res)
-        return
-      }
-
-      if (info.drive) {
-        this._ondrive(resolved, info, res)
-        return
-      }
+    if (info.drive) {
+      this._ondrive(info, res)
+      return
     }
 
     res.statusCode = 404
     res.end()
   }
 
-  async _ondrive ({ key, encryptionKey }, info, res) {
-    const core = this.store.get(key)
+  async _ondrive (info, res) {
+    const core = await this._getCore(info.drive.key, true)
 
-    if (encryptionKey) {
-      try {
-        await core.setEncryptionKey(encryptionKey)
-      } catch {
-        res.statusCode = 400
-        res.end()
-        return
-      }
+    if (core === null) {
+      res.statusCode = 404
+      res.end()
+      return
     }
 
     res.on('close', () => core.close().catch(noop))
@@ -150,8 +229,15 @@ module.exports = class HypercoreBlobServer {
     res.end()
   }
 
-  async _onblob ({ key, encryptionKey }, info, res) {
+  async _onblob (info, res) {
     const blob = info.blob
+    const core = await this._getCore(blob.key, true)
+
+    if (core === null) {
+      res.statusCode = 404
+      res.end()
+      return
+    }
 
     res.setHeader('Accept-Ranges', 'bytes')
     res.setHeader('Content-Type', blob.type)
@@ -172,20 +258,9 @@ module.exports = class HypercoreBlobServer {
     res.setHeader('Content-Length', '' + length)
 
     if (info.head) {
+      core.close().catch(noop)
       res.end()
       return
-    }
-
-    const core = this.store.get(key)
-
-    if (encryptionKey) {
-      try {
-        await core.setEncryptionKey(encryptionKey)
-      } catch {
-        res.statusCode = 400
-        res.end()
-        return
-      }
     }
 
     const rs = new ByteStream(core, blob.id, { start, length })
@@ -321,15 +396,20 @@ module.exports = class HypercoreBlobServer {
         : ':' + port
 
     const id = blob && c.encode(blobId, blob)
+    const k = typeof key === 'string' ? key : HypercoreID.encode(key)
     const encodedType = encodeURIComponent(type)
     const token = this.token ? '&token=' + this.token : ''
     const v = version ? '&version=' + version : ''
     const name = filename && encodeURI(filename.replace(/^\//, ''))
     const path = id
-      ? `/blob?key=${z32.encode(key)}&id=${z32.encode(id)}&type=${encodedType}${token}`
-      : `/drive/${name}?key=${z32.encode(key)}&type=${encodedType}${token}${v}`
+      ? `/blob?key=${k}&id=${z32.encode(id)}&type=${encodedType}${token}`
+      : `/drive/${name}?key=${k}&type=${encodedType}${token}${v}`
 
     return url ? `${protocol}://${host}${p}${path}` : path
+  }
+
+  download (key, opts = {}) {
+    return new BlobDownloader(this, key, opts)
   }
 
   async clear (key, opts = {}) {
@@ -339,7 +419,8 @@ module.exports = class HypercoreBlobServer {
       throw new Error('Must specify a filename or blob')
     }
 
-    const core = this.store.get({ key, wait: false, active: false })
+    const core = this._getCore(key, false)
+    if (core === null) return
 
     if (blob) {
       await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
@@ -372,7 +453,7 @@ function decodeParams (url) {
 
   for (const p of parts[1].split('&')) {
     if (p.startsWith('token=')) result.token = p.slice(6)
-    if (p.startsWith('key=')) result.key = z32.decode(p.slice(4))
+    if (p.startsWith('key=')) result.key = HypercoreID.decode(p.slice(4))
     if (p.startsWith('id=')) result.id = c.decode(blobId, z32.decode(p.slice(3)))
     if (p.startsWith('type=')) result.type = decodeURIComponent(p.slice(5))
     if (p.startsWith('version=')) result.version = Number(p.slice(8))
