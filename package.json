@@ -1,6 +1,6 @@
 {
   "name": "hypercore-blob-server",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "HTTP server for streaming hypercore blobs",
   "main": "index.js",
   "files": [
