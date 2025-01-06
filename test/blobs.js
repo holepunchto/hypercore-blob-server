@@ -1,11 +1,11 @@
 const test = require('brittle')
 const b4a = require('b4a')
-const RAM = require('random-access-memory')
+const tmp = require('test-tmp')
 const Corestore = require('corestore')
 const { testBlobServer, request, testHyperblobs } = require('./helpers')
 
 test('can get blob from hypercore', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 
@@ -21,7 +21,7 @@ test('can get blob from hypercore', async function (t) {
 })
 
 test('can get encrypted blob from hypercore', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 
@@ -41,7 +41,7 @@ test('can get encrypted blob from hypercore', async function (t) {
 })
 
 test('can get blob from hypercore - multiple blocks', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
   blobs.blockSize = 4 // force multiple blocks
@@ -59,7 +59,7 @@ test('can get blob from hypercore - multiple blocks', async function (t) {
 })
 
 test('can get a partial blob from hypercore', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 
@@ -74,7 +74,7 @@ test('can get a partial blob from hypercore', async function (t) {
 })
 
 test('can get a partial blob from hypercore, but request the whole data', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 
@@ -89,7 +89,7 @@ test('can get a partial blob from hypercore, but request the whole data', async 
 })
 
 test('handle out of range header end', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 
@@ -104,7 +104,7 @@ test('handle out of range header end', async function (t) {
 })
 
 test('handle range header without end', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 
@@ -119,7 +119,7 @@ test('handle range header without end', async function (t) {
 })
 
 test('handle invalid range header', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
 

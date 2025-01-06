@@ -1,11 +1,11 @@
 const test = require('brittle')
 const b4a = require('b4a')
-const RAM = require('random-access-memory')
+const tmp = require('test-tmp')
 const Corestore = require('corestore')
 const { testHyperdrive, testBlobServer, request, get } = require('./helpers')
 
 test('can get file from hyperdrive', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
@@ -19,7 +19,7 @@ test('can get file from hyperdrive', async function (t) {
 })
 
 test('can get versioned file from hyperdrive', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
@@ -36,7 +36,7 @@ test('can get versioned file from hyperdrive', async function (t) {
 })
 
 test('404 if file not found', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
@@ -50,7 +50,7 @@ test('404 if file not found', async function (t) {
 })
 
 test('404 if token is invalid', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
@@ -66,7 +66,7 @@ test('404 if token is invalid', async function (t) {
 })
 
 test('sending request while suspended', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
@@ -85,7 +85,7 @@ test('sending request while suspended', async function (t) {
 })
 
 test('sending request after resume', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', 'Here')
@@ -102,7 +102,7 @@ test('sending request after resume', async function (t) {
 })
 
 test('can get encrypted blob from hyperdrive', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store, { encryptionKey: b4a.alloc(32) })
   await drive.put('/file.txt', 'Here')
@@ -120,7 +120,7 @@ test('can get encrypted blob from hyperdrive', async function (t) {
 })
 
 test('can select a file for full download', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store, { encryptionKey: b4a.alloc(32) })
   await drive.put('/file.txt', 'Here')
