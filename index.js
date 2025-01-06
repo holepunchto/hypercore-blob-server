@@ -227,7 +227,7 @@ module.exports = class HypercoreBlobServer {
     const path = this.getLink(result.key, {
       url: false,
       blob: result.blob,
-      drive: info.key,
+      drive: info.drive,
       filename: info.filename,
       version: info.version,
       type: info.type || getMimeType(info.filename)
@@ -406,7 +406,7 @@ module.exports = class HypercoreBlobServer {
 
     const k = typeof key === 'string' ? key : HypercoreID.encode(key)
     const b = blob ? '&blob=' + z32.encode(c.encode(blobId, blob)) : ''
-    const d = drive ? '&drive=' + HypercoreID.encode(key) : ''
+    const d = drive ? '&drive=' + HypercoreID.encode(drive) : ''
     const v = version ? '&version=' + version : ''
     const t = '&type=' + encodeURIComponent(type)
     const token = this.token ? '&token=' + this.token : ''
