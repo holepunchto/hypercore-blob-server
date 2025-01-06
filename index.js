@@ -103,6 +103,7 @@ class BlobDownloader {
     if (result !== null) {
       info.key = result.key
       info.drive = info.key
+      info.blob = result.blob
       this.core = await this.server._getCore(result.key, info, true)
       this.blob = result.blob
     } else {
