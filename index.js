@@ -419,7 +419,7 @@ module.exports = class HypercoreBlobServer {
       throw new Error('Must specify a filename or blob')
     }
 
-    const core = this._getCore(key, false)
+    const core = await this._getCore(key, false)
     if (core === null) return
 
     if (blob) {
