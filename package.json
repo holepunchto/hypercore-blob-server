@@ -34,7 +34,9 @@
     "brittle": "^3.7.0",
     "corestore": "^6.18.4",
     "hyperblobs": "^2.7.4",
+    "hyperdht": "^6.20.1",
     "hyperdrive": "^11.13.3",
+    "hyperswarm": "^4.8.4",
     "standard": "^17.1.2"
   },
   "repository": {

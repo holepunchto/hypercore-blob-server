@@ -2,6 +2,8 @@ const test = require('brittle')
 const b4a = require('b4a')
 const tmp = require('test-tmp')
 const Corestore = require('corestore')
+const testnet = require('hyperdht/testnet')
+const Hyperswarm = require('hyperswarm')
 const { testHyperdrive, testBlobServer, request, get } = require('./helpers')
 
 test('can get file from hyperdrive', async function (t) {
@@ -117,6 +119,47 @@ test('can get encrypted blob from hyperdrive', async function (t) {
   const res = await request(server, drive.key, { filename: '/file.txt' })
   t.is(res.status, 200)
   t.is(res.data, 'Here')
+
+  await drive.close()
+})
+
+test('can get encrypted blob from hyperdrive while replicating', async function (t) {
+  const store = new Corestore(await tmp())
+  const store2 = new Corestore(await tmp())
+  const { bootstrap } = await testnet(10, t)
+
+  const swarm1 = new Hyperswarm({ bootstrap })
+  const swarm2 = new Hyperswarm({ bootstrap })
+  const encryptionKey = b4a.alloc(32)
+
+  const drive = testHyperdrive(t, store, { encryptionKey })
+  await drive.put('/file.txt', 'Here')
+
+  swarm1.on('connection', c => {
+    store.replicate(c)
+  })
+
+  swarm2.on('connection', c => {
+    store2.replicate(c)
+  })
+
+  await swarm1.join(drive.discoveryKey).flushed()
+  await swarm2.join(drive.discoveryKey).flushed()
+
+  const server = testBlobServer(t, store2, {
+    resolve: function (key) {
+      return { key, encryptionKey }
+    }
+  })
+  await server.listen()
+
+  const res = await request(server, drive.key, { filename: '/file.txt', version: drive.version })
+  t.is(res.status, 200)
+  t.is(res.data, 'Here')
+
+  await swarm1.destroy()
+  await swarm2.destroy()
+  await drive.close()
 })
 
 test('can select a file for full download', async function (t) {
