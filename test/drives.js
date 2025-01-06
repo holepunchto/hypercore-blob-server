@@ -178,3 +178,21 @@ test('can select a file for full download', async function (t) {
   const dl = server.download(drive.key, { filename: '/file.txt' })
   await dl.done()
 })
+
+test.solo('server could clear files', async function (t) {
+  const store = new Corestore(RAM)
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+  await drive.put('/file2.txt', 'IAm')
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  await server.clear(drive.key, {
+    filename: '/file2.txt'
+  })
+
+  t.ok(await drive.entry('/file.txt'))
+  t.is(await drive.entry('/file2.txt'), null)
+})

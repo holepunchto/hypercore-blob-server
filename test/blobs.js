@@ -132,3 +132,24 @@ test('handle invalid range header', async function (t) {
   t.is(res.status, 200)
   t.is(res.data, 'Hello World')
 })
+
+test('server could clear blobs', async function (t) {
+  const store = new Corestore(RAM)
+
+  const core = store.get({ name: 'test' })
+  await core.append([Buffer.from('abc'), Buffer.from('d'), Buffer.from('efg')])
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  await server.clear(core.key, {
+    blob: {
+      blockOffset: 0,
+      blockLength: 2
+    }
+  })
+
+  t.is(await core.get(0, { wait: false }), null)
+  t.is(await core.get(1, { wait: false }), null)
+  t.alike(await core.get(2, { wait: false }), Buffer.from('efg'))
+})
