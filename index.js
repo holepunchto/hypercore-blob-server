@@ -86,7 +86,8 @@ class BlobDownloader {
   }
 
   async _getBlob () {
-    const core = await this.server._getCore(this.key, true)
+    const info = toInfo(this.key, this.blob, null, this.filename, this.version)
+    const core = await this.server._getCore(this.key, info, true)
     if (core === null) return
 
     this.core = core
@@ -100,7 +101,9 @@ class BlobDownloader {
     await this.core.close()
 
     if (result !== null) {
-      this.core = await this.server._getCore(result.key, true)
+      info.key = result.key
+      info.drive = info.key
+      this.core = await this.server._getCore(result.key, info, true)
       this.blob = result.blob
     } else {
       this.core = null
@@ -147,9 +150,9 @@ module.exports = class HypercoreBlobServer {
     socket.on('close', () => this.connections.delete(socket))
   }
 
-  async _getCore (k, active) {
+  async _getCore (k, info, active) {
     try {
-      const resolved = await this.resolve(k)
+      const resolved = await this.resolve(k, info)
       if (!resolved) return null
 
       const { key = k, encryptionKey } = resolved
@@ -186,7 +189,7 @@ module.exports = class HypercoreBlobServer {
       return
     }
 
-    if (info.drive) {
+    if (info.filename) {
       this._ondrive(info, res)
       return
     }
@@ -196,7 +199,8 @@ module.exports = class HypercoreBlobServer {
   }
 
   async _ondrive (info, res) {
-    const core = await this._getCore(info.drive.key, true)
+    info.drive = info.key
+    const core = await this._getCore(info.key, info, true)
 
     if (core === null) {
       res.statusCode = 404
@@ -205,11 +209,12 @@ module.exports = class HypercoreBlobServer {
     }
 
     res.on('close', () => core.close().catch(noop))
+    info.drive = core.key
 
     let result = null
 
     try {
-      result = await resolveDriveFilename(core, info.drive.filename, info.drive.version)
+      result = await resolveDriveFilename(core, info.filename, info.version)
     } catch {}
 
     if (result === null) {
@@ -221,7 +226,10 @@ module.exports = class HypercoreBlobServer {
     const path = this.getLink(result.key, {
       url: false,
       blob: result.blob,
-      type: info.drive.type || getMimeType(info.drive.filename)
+      drive: info.key,
+      filename: info.filename,
+      version: info.version,
+      type: info.type || getMimeType(info.filename)
     })
 
     res.statusCode = 307
@@ -230,8 +238,7 @@ module.exports = class HypercoreBlobServer {
   }
 
   async _onblob (info, res) {
-    const blob = info.blob
-    const core = await this._getCore(blob.key, true)
+    const core = await this._getCore(info.key, info, true)
 
     if (core === null) {
       res.statusCode = 404
@@ -240,19 +247,19 @@ module.exports = class HypercoreBlobServer {
     }
 
     res.setHeader('Accept-Ranges', 'bytes')
-    res.setHeader('Content-Type', blob.type)
+    res.setHeader('Content-Type', info.type)
 
     let start = 0
-    let length = blob.id.byteLength
+    let length = info.blob.byteLength
 
-    if (blob.range && length > 0) {
-      const end = blob.range.end === -1 ? blob.id.byteLength - 1 : blob.range.end
+    if (info.range && length > 0) {
+      const end = info.range.end === -1 ? info.blob.byteLength - 1 : info.range.end
 
-      start = blob.range.start
+      start = info.range.start
       length = end - start + 1
 
       res.statusCode = 206
-      res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + blob.id.byteLength)
+      res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + info.blob.byteLength)
     }
 
     res.setHeader('Content-Length', '' + length)
@@ -263,7 +270,7 @@ module.exports = class HypercoreBlobServer {
       return
     }
 
-    const rs = new ByteStream(core, blob.id, { start, length })
+    const rs = new ByteStream(core, info.blob, { start, length })
 
     rs.on('error', teardown)
     res.on('error', teardown)
@@ -378,6 +385,7 @@ module.exports = class HypercoreBlobServer {
       protocol = this.protocol,
       filename = null,
       version = 0,
+      drive = null,
       blob = null,
       url = true,
       mimetype = filename ? getMimeType(filename) : 'application/octet-stream',
@@ -395,15 +403,15 @@ module.exports = class HypercoreBlobServer {
         ? ''
         : ':' + port
 
-    const id = blob && c.encode(blobId, blob)
     const k = typeof key === 'string' ? key : HypercoreID.encode(key)
-    const encodedType = encodeURIComponent(type)
-    const token = this.token ? '&token=' + this.token : ''
+    const b = blob ? '&blob=' + z32.encode(c.encode(blobId, blob)) : ''
+    const d = drive ? '&drive=' + HypercoreID.encode(key) : ''
     const v = version ? '&version=' + version : ''
-    const name = filename && encodeURI(filename.replace(/^\//, ''))
-    const path = id
-      ? `/blob?key=${k}&id=${z32.encode(id)}&type=${encodedType}${token}`
-      : `/drive/${name}?key=${k}&type=${encodedType}${token}${v}`
+    const t = '&type=' + encodeURIComponent(type)
+    const token = this.token ? '&token=' + this.token : ''
+    const name = filename ? encodeURI(filename.replace(/^\//, '')) : ''
+
+    const path = `/${name}?key=${k}${b}${d}${v}${t}${token}`
 
     return url ? `${protocol}://${host}${p}${path}` : path
   }
@@ -413,13 +421,13 @@ module.exports = class HypercoreBlobServer {
   }
 
   async clear (key, opts = {}) {
-    const { blob = null, filename = null, version = 0 } = opts
+    const { blob = null, drive = null, filename = null, version = 0 } = opts
 
     if (!blob && !filename) {
       throw new Error('Must specify a filename or blob')
     }
 
-    const core = this._getCore(key, false)
+    const core = this._getCore(key, toInfo(key, blob, drive, filename, version), false)
     if (core === null) return
 
     if (blob) {
@@ -435,88 +443,63 @@ module.exports = class HypercoreBlobServer {
 
     await core.close()
 
-    if (result !== null) await this.clear(result.key, { blob: result.blob })
+    if (result !== null) await this.clear(result.key, { blob: result.blob, drive: key, filename, version })
   }
 }
 
-function decodeParams (url) {
-  const result = {
+function toInfo (key, blob, drive, filename, version) {
+  return {
+    head: null,
+    range: null,
     token: null,
-    key: null,
-    id: null,
-    type: 'application/octet-stream',
-    version: 0
+    key,
+    blob,
+    drive: blob ? null : key,
+    version,
+    filename,
+    type: 'application/octet-stream'
   }
-
-  const parts = url.split('?')
-  if (parts.length < 2) return result
-
-  for (const p of parts[1].split('&')) {
-    if (p.startsWith('token=')) result.token = p.slice(6)
-    if (p.startsWith('key=')) result.key = HypercoreID.decode(p.slice(4))
-    if (p.startsWith('id=')) result.id = c.decode(blobId, z32.decode(p.slice(3)))
-    if (p.startsWith('type=')) result.type = decodeURIComponent(p.slice(5))
-    if (p.startsWith('version=')) result.version = Number(p.slice(8))
-  }
-
-  return result
-}
-
-function decodeDriveRequest (req) {
-  try {
-    const { token, key, type, version } = decodeParams(req.url)
-    const filename = decodeURI(req.url.slice('/drive'.length).split('?')[0])
-
-    const info = {
-      head: req.method === 'HEAD',
-      token,
-      drive: {
-        key,
-        version,
-        filename,
-        type
-      },
-      blob: null
-    }
-
-    if (!info.drive.key || !filename || filename === '/') return null
-    return info
-  } catch {
-    return null
-  }
-}
-
-function decodeBlobRequest (req) {
-  try {
-    const { token, key, id, type } = decodeParams(req.url)
-
-    const info = {
-      head: req.method === 'HEAD',
-      token,
-      drive: null,
-      blob: {
-        key,
-        id,
-        type,
-        range: parseRange(req.headers.range)
-      }
-    }
-
-    if (!info.blob.key || !info.blob.id) return null
-    return info
-  } catch {
-    return null
-  }
-}
-
-function defaultResolve (key) {
-  return { key, encryptionKey: null }
 }
 
 function decodeRequest (req) {
-  if (req.url.startsWith('/blob')) return decodeBlobRequest(req)
-  if (req.url.startsWith('/drive')) return decodeDriveRequest(req)
-  return null
+  try {
+    const result = {
+      head: req.method === 'HEAD',
+      range: parseRange(req.headers.range),
+      token: null,
+      key: null,
+      blob: null,
+      drive: null,
+      version: 0,
+      filename: null,
+      type: 'application/octet-stream'
+    }
+
+    const parts = req.url.split('?')
+    if (parts.length < 2) return result
+
+    result.filename = parts[0] !== '/' ? decodeURI(parts[0]) : null
+
+    for (const p of parts[1].split('&')) {
+      if (p.startsWith('token=')) result.token = p.slice(6)
+      if (p.startsWith('key=')) result.key = HypercoreID.decode(p.slice(4))
+      if (p.startsWith('drive=')) result.drive = HypercoreID.decode(p.slice(6))
+      if (p.startsWith('blob=')) result.blob = c.decode(blobId, z32.decode(p.slice(5)))
+      if (p.startsWith('type=')) result.type = decodeURIComponent(p.slice(5))
+      if (p.startsWith('version=')) result.version = Number(p.slice(8))
+    }
+
+    if (result.key === null) return null
+    if (result.filename === null && result.blob === null) return null
+
+    return result
+  } catch {
+    return null
+  }
+}
+
+function defaultResolve (key, info) {
+  return { key, encryptionKey: null }
 }
 
 function parseRange (range) {
