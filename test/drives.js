@@ -178,3 +178,24 @@ test('can select a file for full download', async function (t) {
   const dl = server.download(drive.key, { filename: '/file.txt' })
   await dl.done()
 })
+
+test('server could clear files', async function (t) {
+  const store = new Corestore(await tmp())
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+  await drive.put('/file2.txt', 'IAm')
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  t.is((await drive.blobs.get({ blockOffset: 0, blockLength: 1, byteOffset: 0, byteLength: 4 }, { wait: false })).toString(), 'Here')
+  t.is((await drive.blobs.get({ blockOffset: 1, blockLength: 1, byteOffset: 4, byteLength: 3 }, { wait: false })).toString(), 'IAm')
+
+  await server.clear(drive.key, {
+    filename: '/file2.txt'
+  })
+
+  t.is((await drive.blobs.get({ blockOffset: 0, blockLength: 1, byteOffset: 0, byteLength: 4 }, { wait: false })).toString(), 'Here')
+  t.is(await drive.blobs.get({ blockOffset: 1, blockLength: 1, byteOffset: 4, byteLength: 3 }, { wait: false }), null)
+})
