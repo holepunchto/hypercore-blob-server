@@ -134,7 +134,7 @@ test('handle invalid range header', async function (t) {
 })
 
 test('server could clear blobs', async function (t) {
-  const store = new Corestore(RAM)
+  const store = new Corestore(await tmp())
 
   const core = store.get({ name: 'test' })
   await core.append([Buffer.from('abc'), Buffer.from('d'), Buffer.from('efg')])
