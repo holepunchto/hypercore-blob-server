@@ -376,8 +376,7 @@ module.exports = class HypercoreBlobServer {
   }
 
   refreshLink (link) {
-    const newLink = link.replace(/:\d+\//, ':' + this.port + '/').replace(/token=.*$/, 'token=' + this.token)
-    return newLink
+    return link.replace(/:\d+\//, ':' + this.port + '/').replace(/token=.*$/, 'token=' + this.token)
   }
 
   getLink (key, opts = {}) {
