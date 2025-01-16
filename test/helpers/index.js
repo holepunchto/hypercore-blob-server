@@ -1,51 +1,12 @@
-const http = require('http')
 const BlobServer = require('../../index.js')
 const Hyperdrive = require('hyperdrive')
 const Hyperblobs = require('hyperblobs')
 
 module.exports = {
-  request,
-  get,
   testBlobServer,
   testHyperblobs,
-  testHyperdrive
-}
-
-function get (link, range = null) {
-  return new Promise((resolve, reject) => {
-    const req = http.get(link, {
-      headers: {
-        Connection: 'close',
-        range
-      }
-    })
-
-    req.on('error', reject)
-    req.on('response', function (res) {
-      if (res.statusCode === 307) {
-        // follow redirect
-        get(new URL(link).origin + res.headers.location).then(resolve).catch(reject)
-      } else {
-        let buf = ''
-        res.setEncoding('utf-8')
-        res.on('data', function (data) {
-          buf += data
-        })
-        res.on('end', function () {
-          resolve({ status: res.statusCode, data: buf })
-        })
-        res.on('close', function () {
-          resolve({ status: res.statusCode, data: buf })
-        })
-      }
-    })
-  })
-}
-
-async function request (server, key, opts) {
-  const link = server.getLink(key, opts)
-
-  return get(link, opts.range)
+  testHyperdrive,
+  fetch: global.fetch || require('bare-fetch')
 }
 
 function testBlobServer (t, store, opts) {

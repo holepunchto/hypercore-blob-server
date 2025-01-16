@@ -31,6 +31,7 @@
     "z32": "^1.1.0"
   },
   "devDependencies": {
+    "bare-fetch": "^2.2.0",
     "brittle": "^3.7.0",
     "corestore": "^7.0.0",
     "hyperblobs": "^2.7.4",
