@@ -162,15 +162,4 @@ test('server could clear blobs', async function (t) {
   t.is(await core.get(0, { wait: false }), null)
   t.is(await core.get(1, { wait: false }), null)
   t.alike(await core.get(2, { wait: false }), b4a.from('efg'))
-  // const link = server.getLink(core.key, {
-  //   blob: {
-  //     blockOffset: 0,
-  //     blockLength: 2,
-  //     byteOffset: 0,
-  //     byteLength: 4
-  //   }
-  // })
-  // const res = await fetch(link)
-  // t.is(res.status, 404)
-  // t.is(await res.text(), '')
 })
