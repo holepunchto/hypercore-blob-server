@@ -141,6 +141,14 @@ module.exports = class HypercoreBlobServer {
     this.closing = null
   }
 
+  static getMimetype (filename) {
+    return getMimeType(filename)
+  }
+
+  static getMimeType (filename) {
+    return getMimeType(filename)
+  }
+
   _onconnection (socket) {
     if (this.suspending) {
       socket.destroy()
