@@ -9,7 +9,7 @@ test('can get blob from hypercore', async function (t) {
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -25,7 +25,9 @@ test('can get encrypted blob from hypercore', async function (t) {
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  await blobs.core.setEncryptionKey(b4a.alloc(32).fill('a'))
+
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store, {
     resolve: function (key) {
@@ -46,7 +48,7 @@ test('can get blob from hypercore - multiple blocks', async function (t) {
   const blobs = testHyperblobs(t, store)
   blobs.blockSize = 4 // force multiple blocks
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
   t.is(id.blockLength, 3) // 3 blocks
 
   const server = testBlobServer(t, store)
@@ -63,7 +65,7 @@ test('can get a partial blob from hypercore', async function (t) {
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -78,7 +80,7 @@ test('can get a partial blob from hypercore, but request the whole data', async 
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -93,7 +95,7 @@ test('handle out of range header end', async function (t) {
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -108,7 +110,7 @@ test('handle range header without end', async function (t) {
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -123,7 +125,7 @@ test('handle invalid range header', async function (t) {
 
   const blobs = testHyperblobs(t, store)
 
-  const id = await blobs.put(Buffer.from('Hello World'))
+  const id = await blobs.put(b4a.from('Hello World'))
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -137,7 +139,7 @@ test('server could clear blobs', async function (t) {
   const store = new Corestore(await tmp())
 
   const core = store.get({ name: 'test' })
-  await core.append([Buffer.from('abc'), Buffer.from('d'), Buffer.from('efg')])
+  await core.append([b4a.from('abc'), b4a.from('d'), b4a.from('efg')])
 
   const server = testBlobServer(t, store)
   await server.listen()
@@ -151,5 +153,5 @@ test('server could clear blobs', async function (t) {
 
   t.is(await core.get(0, { wait: false }), null)
   t.is(await core.get(1, { wait: false }), null)
-  t.alike(await core.get(2, { wait: false }), Buffer.from('efg'))
+  t.alike(await core.get(2, { wait: false }), b4a.from('efg'))
 })
