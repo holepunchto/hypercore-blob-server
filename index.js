@@ -384,7 +384,8 @@ module.exports = class HypercoreBlobServer {
       host = this.host,
       port = this.port,
       protocol = this.protocol,
-      filename = null,
+      name = null,
+      filename = name,
       version = 0,
       drive = null,
       blob = null,
@@ -410,9 +411,9 @@ module.exports = class HypercoreBlobServer {
     const v = version ? '&version=' + version : ''
     const t = '&type=' + encodeURIComponent(type)
     const token = this.token ? '&token=' + this.token : ''
-    const name = filename ? encodeURI(filename.replace(/^\//, '')) : ''
+    const pathname = filename ? encodeURI(filename.replace(/^\//, '').replace(/\\+/g, '/')) : ''
 
-    const path = `/${name}?key=${k}${b}${d}${v}${t}${token}`
+    const path = `/${pathname}?key=${k}${b}${d}${v}${t}${token}`
 
     return url ? `${protocol}://${host}${p}${path}` : path
   }
