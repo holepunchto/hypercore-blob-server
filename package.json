@@ -21,7 +21,7 @@
     "compact-encoding": "^2.16.0",
     "get-mime-type": "^1.0.2",
     "hyperbee": "^2.20.7",
-    "hypercore": "^10.38.1",
+    "hypercore": "^11.0.0",
     "hypercore-byte-stream": "^2.0.1",
     "hypercore-crypto": "^3.4.2",
     "hypercore-id-encoding": "^1.3.0",
@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "brittle": "^3.7.0",
-    "corestore": "^6.18.4",
+    "corestore": "^7.0.0",
     "hyperblobs": "^2.7.4",
     "hyperdht": "^6.20.1",
     "hyperdrive": "^11.13.3",
