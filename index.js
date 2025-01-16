@@ -279,7 +279,8 @@ module.exports = class HypercoreBlobServer {
 
     rs.pipe(res)
 
-    function teardown () {
+    function teardown (error) {
+      if (error) console.error(error)
       if (!isEnded(rs)) res.destroy()
     }
   }
