@@ -254,7 +254,7 @@ module.exports = class HypercoreBlobServer {
     let length = info.blob.byteLength
 
     if (info.range && length > 0) {
-      const end = info.range.end === -1 ? info.blob.byteLength - 1 : info.range.end
+      const end = info.range.end === -1 ? info.blob.byteLength - 1 : Math.min(info.range.end, info.blob.byteLength - 1)
 
       start = info.range.start
       length = end - start + 1

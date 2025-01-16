@@ -186,7 +186,7 @@ test('can select a file for full download', async function (t) {
   await dl.done()
 })
 
-test.skip('server could clear files', async function (t) {
+test('server could clear files', async function (t) {
   const store = new Corestore(await tmp())
 
   const drive = testHyperdrive(t, store)

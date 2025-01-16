@@ -20,7 +20,7 @@ test('can get blob from hypercore', async function (t) {
   t.is(await res.text(), 'Hello World')
 })
 
-test.solo('can get encrypted blob from hypercore', async function (t) {
+test('can get encrypted blob from hypercore', async function (t) {
   const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
@@ -39,11 +39,7 @@ test.solo('can get encrypted blob from hypercore', async function (t) {
   const link = server.getLink(blobs.core.key, { blob: id })
   const res = await fetch(link)
   t.is(res.status, 200)
-  const stream = res.body.pipeThrough(new TextDecoderStream())
-  for await (const value of stream) {
-    console.log(value)
-  }
-  // t.absent(text.includes('Hello Wolrd'))
+  t.absent((await res.text()).includes('Hello Wolrd'))
 })
 
 test('can get blob from hypercore - multiple blocks', async function (t) {
@@ -97,7 +93,7 @@ test('can get a partial blob from hypercore, but request the whole data', async 
   t.is(await res.text(), 'Hello World')
 })
 
-test.skip('handle out of range header end', async function (t) {
+test('handle out of range header end', async function (t) {
   const store = new Corestore(await tmp())
 
   const blobs = testHyperblobs(t, store)
@@ -145,7 +141,7 @@ test('handle invalid range header', async function (t) {
   t.is(await res.text(), 'Hello World')
 })
 
-test.skip('server could clear blobs', async function (t) {
+test('server could clear blobs', async function (t) {
   const store = new Corestore(await tmp())
 
   const core = store.get({ name: 'test' })
