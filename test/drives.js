@@ -4,7 +4,7 @@ const tmp = require('test-tmp')
 const Corestore = require('corestore')
 const testnet = require('hyperdht/testnet')
 const Hyperswarm = require('hyperswarm')
-const { testHyperdrive, testBlobServer, request, get } = require('./helpers')
+const { testHyperdrive, testBlobServer, fetch } = require('./helpers')
 
 test('can get file from hyperdrive', async function (t) {
   const store = new Corestore(await tmp())
@@ -15,9 +15,10 @@ test('can get file from hyperdrive', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, drive.key, { filename: '/file.txt' })
+  const link = server.getLink(drive.key, { filename: '/file.txt' })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Here')
+  t.is(await res.text(), 'Here')
 })
 
 test('can get versioned file from hyperdrive', async function (t) {
@@ -32,9 +33,10 @@ test('can get versioned file from hyperdrive', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, drive.key, { filename: '/file.txt', version: v })
+  const link = server.getLink(drive.key, { filename: '/file.txt', version: v })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Here')
+  t.is(await res.text(), 'Here')
 })
 
 test('404 if file not found', async function (t) {
@@ -46,9 +48,10 @@ test('404 if file not found', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, drive.key, { filename: '/testing.txt' })
+  const link = server.getLink(drive.key, { filename: '/testing.txt' })
+  const res = await fetch(link)
   t.is(res.status, 404)
-  t.is(res.data, '')
+  t.is(await res.text(), '')
 })
 
 test('404 if token is invalid', async function (t) {
@@ -61,10 +64,10 @@ test('404 if token is invalid', async function (t) {
   await server.listen()
 
   const link = server.getLink(drive.key, { filename: '/testing.txt' })
-  const res = await get(link.replace('token=', 'token=breakme'))
+  const res = await fetch(link.replace('token=', 'token=breakme'))
 
   t.is(res.status, 404)
-  t.is(res.data, '')
+  t.is(await res.text(), '')
 })
 
 test('sending request while suspended', async function (t) {
@@ -79,7 +82,8 @@ test('sending request while suspended', async function (t) {
   await server.suspend()
 
   try {
-    await request(server, drive.key, { filename: '/file.txt' })
+    const link = server.getLink(drive.key, { filename: '/file.txt' })
+    await fetch(link)
     t.fail('request should fail')
   } catch (err) {
     t.ok(err)
@@ -98,9 +102,10 @@ test('sending request after resume', async function (t) {
   await server.suspend()
   await server.resume()
 
-  const res = await request(server, drive.key, { filename: '/file.txt' })
+  const link = server.getLink(drive.key, { filename: '/file.txt' })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Here')
+  t.is(await res.text(), 'Here')
 })
 
 test('can get encrypted blob from hyperdrive', async function (t) {
@@ -116,9 +121,10 @@ test('can get encrypted blob from hyperdrive', async function (t) {
   })
   await server.listen()
 
-  const res = await request(server, drive.key, { filename: '/file.txt' })
+  const link = server.getLink(drive.key, { filename: '/file.txt' })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Here')
+  t.is(await res.text(), 'Here')
 
   await drive.close()
 })
@@ -153,9 +159,10 @@ test('can get encrypted blob from hyperdrive while replicating', async function 
   })
   await server.listen()
 
-  const res = await request(server, drive.key, { filename: '/file.txt', version: drive.version })
+  const link = server.getLink(drive.key, { filename: '/file.txt', version: drive.version })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Here')
+  t.is(await res.text(), 'Here')
 
   await swarm1.destroy()
   await swarm2.destroy()

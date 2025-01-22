@@ -2,7 +2,7 @@ const test = require('brittle')
 const b4a = require('b4a')
 const tmp = require('test-tmp')
 const Corestore = require('corestore')
-const { testBlobServer, request, testHyperblobs } = require('./helpers')
+const { testBlobServer, testHyperblobs, fetch } = require('./helpers')
 
 test('can get blob from hypercore', async function (t) {
   const store = new Corestore(await tmp())
@@ -14,10 +14,10 @@ test('can get blob from hypercore', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id })
-
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Hello World')
+  t.is(await res.text(), 'Hello World')
 })
 
 test('can get encrypted blob from hypercore', async function (t) {
@@ -36,10 +36,10 @@ test('can get encrypted blob from hypercore', async function (t) {
   })
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id })
-
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.absent(res.data.includes('Hello Wolrd'))
+  t.absent((await res.text()).includes('Hello Wolrd'))
 })
 
 test('can get blob from hypercore - multiple blocks', async function (t) {
@@ -54,10 +54,10 @@ test('can get blob from hypercore - multiple blocks', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id })
-
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link)
   t.is(res.status, 200)
-  t.is(res.data, 'Hello World')
+  t.is(await res.text(), 'Hello World')
 })
 
 test('can get a partial blob from hypercore', async function (t) {
@@ -70,9 +70,11 @@ test('can get a partial blob from hypercore', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id, range: 'bytes=3-7' })
+  const link = server.getLink(blobs.core.key, { blob: id })
+
+  const res = await fetch(link, { headers: { range: 'bytes=3-7' } })
+  t.is(await res.text(), 'lo Wo')
   t.is(res.status, 206)
-  t.is(res.data, 'lo Wo')
 })
 
 test('can get a partial blob from hypercore, but request the whole data', async function (t) {
@@ -85,9 +87,10 @@ test('can get a partial blob from hypercore, but request the whole data', async 
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id, range: 'bytes=0-10' })
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link, { headers: { range: 'bytes=0-10' } })
   t.is(res.status, 206)
-  t.is(res.data, 'Hello World')
+  t.is(await res.text(), 'Hello World')
 })
 
 test('handle out of range header end', async function (t) {
@@ -100,9 +103,10 @@ test('handle out of range header end', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id, range: 'bytes=0-20' })
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link, { headers: { range: 'bytes=0-20' } })
   t.is(res.status, 206)
-  t.is(res.data, 'Hello World')
+  t.is(await res.text(), 'Hello World')
 })
 
 test('handle range header without end', async function (t) {
@@ -115,9 +119,10 @@ test('handle range header without end', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id, range: 'bytes=2-' })
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link, { headers: { range: 'bytes=2-' } })
   t.is(res.status, 206)
-  t.is(res.data, 'llo World')
+  t.is(await res.text(), 'llo World')
 })
 
 test('handle invalid range header', async function (t) {
@@ -130,9 +135,10 @@ test('handle invalid range header', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  const res = await request(server, blobs.core.key, { blob: id, range: 'testing' })
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const res = await fetch(link, { headers: { range: 'testing' } })
   t.is(res.status, 200)
-  t.is(res.data, 'Hello World')
+  t.is(await res.text(), 'Hello World')
 })
 
 test('server could clear blobs', async function (t) {
@@ -147,7 +153,9 @@ test('server could clear blobs', async function (t) {
   await server.clear(core.key, {
     blob: {
       blockOffset: 0,
-      blockLength: 2
+      blockLength: 2,
+      byteOffset: 0,
+      byteLength: 4
     }
   })
 
