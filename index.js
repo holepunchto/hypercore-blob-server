@@ -7,6 +7,7 @@ const crypto = require('hypercore-crypto')
 const ByteStream = require('hypercore-byte-stream')
 const getMimeType = require('get-mime-type')
 const { isEnded } = require('streamx')
+const ReadyResource = require('ready-resource')
 const resolveDriveFilename = require('./drive')
 
 const blobId = {
@@ -32,8 +33,10 @@ const blobId = {
   }
 }
 
-class BlobDownloader {
+class BlobRef extends ReadyResource {
   constructor (server, key, opts = {}) {
+    super()
+
     const { blob = null, filename = null, version = 0 } = opts
 
     if (!blob && !filename) {
@@ -46,43 +49,34 @@ class BlobDownloader {
     this.filename = filename
     this.version = version
     this.core = null
-    this.range = null
 
-    this.opening = this._open()
-    this.opening.catch(noop)
+    this.ready().catch(noop)
   }
 
   async _open () {
     await this._getBlob()
     if (!this.core || !this.blob) return
-    this.range = this.core.download({
-      start: this.blob.blockOffset,
-      length: this.blob.blockLength
-    })
+    this._oncore()
   }
 
-  async done () {
-    await this.opening
-    await this.range.done()
-    await this.close()
+  _oncore () {
+    // overwrite me
   }
 
-  async close () {
+  _gc () {
+    // gc
+  }
+
+  close () {
     if (this.core) this.core.close()
+    return super.close()
+  }
 
-    try {
-      await this.opening
-    } catch {}
-
-    if (this.core) {
-      await this.core.close()
-      this.core = null
-    }
-
-    if (this.range) {
-      this.range.destroy()
-      this.range = null
-    }
+  async _close () {
+    if (!this.core) return
+    await this.core.close()
+    this.core = null
+    this._gc()
   }
 
   async _getBlob () {
@@ -109,6 +103,43 @@ class BlobDownloader {
     } else {
       this.core = null
     }
+  }
+}
+
+class BlobDownloader extends BlobRef {
+  constructor (server, key, opts) {
+    super(server, key, opts)
+    this.range = null
+  }
+
+  _oncore () {
+    this.range = this.core.download({
+      start: this.blob.blockOffset,
+      length: this.blob.blockLength
+    })
+  }
+
+  _gc () {
+    if (this.range) {
+      this.range.destroy()
+      this.range = null
+    }
+  }
+
+  async done () {
+    await this.opening
+    await this.range.done()
+    await this.close()
+  }
+}
+
+class BlobMonitor extends BlobRef {
+  _oncore () {
+    // start monitoring
+  }
+
+  _gc () {
+    // teardown monitoring...
   }
 }
 
@@ -426,7 +457,11 @@ module.exports = class HypercoreBlobServer {
     return url ? `${protocol}://${host}${p}${path}` : path
   }
 
-  download (key, opts = {}) {
+  monitor (key, opts) {
+    return new BlobMonitor(this, key, opts)
+  }
+
+  download (key, opts) {
     return new BlobDownloader(this, key, opts)
   }
 
