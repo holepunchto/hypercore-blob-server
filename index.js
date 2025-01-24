@@ -170,7 +170,7 @@ class BlobMonitor extends BlobRef {
   }
 
   // has side effect
-  _hasChanged = () => {
+  _hasChanged () {
     let changed = false
 
     if (this.uploadSpeed !== this.stats.uploadStats.speed || this.downloadSpeed !== this.stats.downloadStats.speed) {
@@ -194,15 +194,15 @@ class BlobMonitor extends BlobRef {
     return changed
   }
 
-  _sendUpdate = () => {
+  _sendUpdate () {
     if (this._hasChanged()) this.emit('update', this.stats)
   }
 
-  _onUpload = (index, byteLength, from) => {
+  _onUpload (index, byteLength, from) {
     this._updateStats(this.uploadSpeedometer, this.uploadStats, index, byteLength, from)
   }
 
-  _onDownload = (index, byteLength, from) => {
+  _onDownload (index, byteLength, from) {
     this._updateStats(this.downloadSpeedometer, this.downloadStats, index, byteLength, from)
   }
 
@@ -228,17 +228,13 @@ class BlobMonitor extends BlobRef {
     return this.core.peers.length
   }
 
-  close () {
-    ReadyResource.prototype.close.call(this)
-  }
-
-  async _close () {
+  async _gc () {
     if (this.timer) clearInterval(this.timers)
 
-    this.core.off('upload', this._boundOnUpload)
-    this.core.off('download', this._boundOnDownload)
-
-    if (this.core) this.core.close()
+    if (this.core) {
+      this.core.off('upload', this._boundOnUpload)
+      this.core.off('download', this._boundOnDownload)
+    }
   }
 }
 
