@@ -157,13 +157,16 @@ class BlobMonitor extends BlobRef {
     this.downloadStats = { ...this.stats.downloadStats }
     this.timer = null
     this.interval = opts.interval ?? 1000
+
+    this._boundOnUpload = this._onUpload.bind(this)
+    this._boundOnDownload = this._onDownload.bind(this)
   }
 
   _oncore () {
     this.timer = setInterval(this._sendUpdate, this.interval)
 
-    this.core.on('upload', this._onUpload)
-    this.core.on('download', this._onDownload)
+    this.core.on('upload', this._boundOnUpload)
+    this.core.on('download', this._boundOnDownload)
   }
 
   // has side effect
@@ -232,8 +235,8 @@ class BlobMonitor extends BlobRef {
   async _close () {
     if (this.timer) clearInterval(this.timers)
 
-    this.core.off('upload', this._onUpload)
-    this.core.off('download', this._onDownload)
+    this.core.off('upload', this._boundOnUpload)
+    this.core.off('download', this._boundOnDownload)
 
     if (this.core) this.core.close()
   }
