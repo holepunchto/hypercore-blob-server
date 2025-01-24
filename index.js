@@ -161,10 +161,11 @@ class BlobMonitor extends BlobRef {
 
     this._boundOnUpload = this._onUpload.bind(this)
     this._boundOnDownload = this._onDownload.bind(this)
+    this._boundSendUpdate = this._sendUpdate.bind(this)
   }
 
   _oncore () {
-    this._timer = setInterval(this._sendUpdate, this._interval)
+    this._timer = setInterval(this._boundSendUpdate, this._interval)
 
     this.core.on('upload', this._boundOnUpload)
     this.core.on('download', this._boundOnDownload)
