@@ -139,13 +139,6 @@ class BlobMonitor extends BlobRef {
     super(server, key, opts)
     this.uploadSpeedometer = speedometer()
     this.downloadSpeedometer = speedometer()
-    this.uploadStats = null
-    this.downloadStats = null
-    this.timer = null
-    this.interval = opts.interval ?? 1000
-  }
-
-  _oncore () {
     this.stats = {
       blob: this.blob,
       peers: 0,
@@ -160,10 +153,13 @@ class BlobMonitor extends BlobRef {
         blocks: 0
       }
     }
-
     this.uploadStats = { ...this.stats.uploadStats }
     this.downloadStats = { ...this.stats.downloadStats }
+    this.timer = null
+    this.interval = opts.interval ?? 1000
+  }
 
+  _oncore () {
     this.timer = setInterval(this._sendUpdate, this.interval)
 
     this.core.on('upload', this._onUpload)
@@ -215,7 +211,6 @@ class BlobMonitor extends BlobRef {
 
     stats.speed = speed(byteLength)
     stats.blocks++
-    console.log('updatestats' + stats.blocks)
   }
 
   get downloadSpeed () {
