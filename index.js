@@ -9,6 +9,7 @@ const getMimeType = require('get-mime-type')
 const { isEnded } = require('streamx')
 const ReadyResource = require('ready-resource')
 const resolveDriveFilename = require('./drive')
+const speedometer = require('speedometer')
 
 const blobId = {
   preencode (state, b) {
@@ -134,12 +135,112 @@ class BlobDownloader extends BlobRef {
 }
 
 class BlobMonitor extends BlobRef {
-  _oncore () {
-    // start monitoring
+  constructor (server, key, opts) {
+    super(server, key, opts)
+    this.uploadSpeedometer = speedometer()
+    this.downloadSpeedometer = speedometer()
+    this.uploadStats = null
+    this.downloadStats = null
+    this.timer = null
+    this.interval = opts.interval ?? 1000
   }
 
-  _gc () {
-    // teardown monitoring...
+  _oncore () {
+    this.stats = {
+      blob: this.blob,
+      peers: 0,
+      uploadStats: {
+        peers: 0,
+        speed: 0,
+        blocks: 0
+      },
+      downloadStats: {
+        peers: 0,
+        speed: 0,
+        blocks: 0
+      }
+    }
+
+    this.uploadStats = { ...this.stats.uploadStats }
+    this.downloadStats = { ...this.stats.downloadStats }
+
+    this.timer = setInterval(this._sendUpdate, this.interval)
+
+    this.core.on('upload', this._onUpload)
+    this.core.on('download', this._onDownload)
+  }
+
+  // has side effect
+  _hasChanged = () => {
+    let changed = false
+
+    if (this.uploadSpeed !== this.stats.uploadStats.speed || this.downloadSpeed !== this.stats.downloadStats.speed) {
+      changed = true
+      this.stats.uploadStats.speed = this.uploadSpeed
+      this.stats.downloadStats.speed = this.downloadSpeed
+    }
+
+    if (this.uploadStats.blocks !== this.stats.uploadStats.blocks || this.downloadStats.blocks !== this.stats.downloadStats.blocks) {
+      changed = true
+      this.stats.uploadStats.blocks = this.uploadStats.blocks
+      this.stats.downloadStats.blocks = this.downloadStats.blocks
+    }
+
+    // peers updated here
+    if (this.peers !== this.stats.peers) {
+      changed = true
+      this.stats.peers = this.stats.uploadStats.peers = this.stats.downloadStats.peers = this.peers
+    }
+
+    return changed
+  }
+
+  _sendUpdate = () => {
+    if (this._hasChanged()) this.emit('update', this.stats)
+  }
+
+  _onUpload = (index, byteLength, from) => {
+    this._updateStats(this.uploadSpeedometer, this.uploadStats, index, byteLength, from)
+  }
+
+  _onDownload = (index, byteLength, from) => {
+    this._updateStats(this.downloadSpeedometer, this.downloadStats, index, byteLength, from)
+  }
+
+  _updateStats (speed, stats, index, byteLength) {
+    if (!stats.startTime) stats.startTime = Date.now()
+    if (!isWithinRange(index, this.blob)) return
+
+    if (!stats.startTime) stats.startTime = Date.now()
+
+    stats.speed = speed(byteLength)
+    stats.blocks++
+    console.log('updatestats' + stats.blocks)
+  }
+
+  get downloadSpeed () {
+    return this.downloadSpeedometer()
+  }
+
+  get uploadSpeed () {
+    return this.uploadSpeedometer()
+  }
+
+  get peers () {
+    return this.core.peers.length
+  }
+
+  close () {
+    ReadyResource.prototype.close.call(this)
+  }
+
+  async _close () {
+    if (this.timer) clearInterval(this.timers)
+
+    this.core.off('upload', this._onUpload)
+    this.core.off('download', this._onDownload)
+
+    if (this.core) this.core.close()
   }
 }
 
@@ -556,6 +657,10 @@ function parseRange (range) {
     start: Number(r[0] || 0),
     end: Number(r[1] === '' ? -1 : r[1])
   }
+}
+
+function isWithinRange (index, { blockOffset, blockLength }) {
+  return index >= blockOffset && index < blockOffset + blockLength
 }
 
 function noop () {}
