@@ -230,7 +230,7 @@ class BlobMonitor extends BlobRef {
   }
 
   async _gc () {
-    if (this._timer) clearInterval(this.timers)
+    if (this._timer) clearInterval(this._timer)
 
     if (this.core) {
       this.core.off('upload', this._boundOnUpload)
