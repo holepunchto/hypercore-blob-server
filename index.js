@@ -87,7 +87,6 @@ class BlobRef extends ReadyResource {
 
     this.core = core
     if (this.blob) return
-    info.drive = core.key
     let result = null
     try {
       result = await resolveDriveFilename(this.core, this.filename, this.version)
