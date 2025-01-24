@@ -179,6 +179,58 @@ test('can select a file for full download', async function (t) {
   await dl.done()
 })
 
+test.solo('can monitor file, replication', async function (t) {
+  const store = new Corestore(await tmp())
+  const store2 = new Corestore(await tmp())
+  const { bootstrap } = await testnet(10, t)
+
+  const swarm1 = new Hyperswarm({ bootstrap })
+  const swarm2 = new Hyperswarm({ bootstrap })
+  const encryptionKey = b4a.alloc(32)
+
+  const bytes = 102400000 // make the file bigger
+  const buffer = Buffer.alloc(bytes, '0')
+  const drive = testHyperdrive(t, store, { encryptionKey })
+  await drive.put('/file.txt', buffer)
+
+  swarm1.on('connection', c => {
+    store.replicate(c)
+  })
+
+  swarm2.on('connection', c => {
+    store2.replicate(c)
+  })
+
+  await swarm1.join(drive.discoveryKey).flushed()
+  await swarm2.join(drive.discoveryKey).flushed()
+
+  const server = testBlobServer(t, store2, {
+    resolve: function (key) {
+      return { key, encryptionKey }
+    }
+  })
+  await server.listen()
+
+  // Why is this needed? Should be?
+  await request(server, drive.key, { filename: '/file.txt', version: drive.version })
+
+  const monitor = server.monitor(drive.key, { filename: '/file.txt' })
+  monitor.on('update', stats => {
+    console.log(JSON.stringify(stats))
+  })
+
+  await server.clear(drive.key, {
+    filename: '/file.txt'
+  })
+
+  const dl = server.download(drive.key, { filename: '/file.txt' })
+  await dl.done()
+
+  await swarm1.destroy()
+  await swarm2.destroy()
+  await drive.close()
+})
+
 test('server could clear files', async function (t) {
   const store = new Corestore(await tmp())
 
