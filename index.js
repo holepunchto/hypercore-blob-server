@@ -137,8 +137,6 @@ class BlobDownloader extends BlobRef {
 class BlobMonitor extends BlobRef {
   constructor (server, key, opts) {
     super(server, key, opts)
-    this.uploadSpeedometer = speedometer()
-    this.downloadSpeedometer = speedometer()
     this.stats = {
       blob: this.blob,
       peers: 0,
@@ -155,15 +153,18 @@ class BlobMonitor extends BlobRef {
     }
     this.uploadStats = { ...this.stats.uploadStats }
     this.downloadStats = { ...this.stats.downloadStats }
-    this.timer = null
-    this.interval = opts.interval ?? 1000
+
+    this._uploadSpeedometer = speedometer()
+    this._downloadSpeedometer = speedometer()
+    this._timer = null
+    this._interval = opts.interval ?? 1000
 
     this._boundOnUpload = this._onUpload.bind(this)
     this._boundOnDownload = this._onDownload.bind(this)
   }
 
   _oncore () {
-    this.timer = setInterval(this._sendUpdate, this.interval)
+    this._timer = setInterval(this._sendUpdate, this._interval)
 
     this.core.on('upload', this._boundOnUpload)
     this.core.on('download', this._boundOnDownload)
@@ -199,11 +200,11 @@ class BlobMonitor extends BlobRef {
   }
 
   _onUpload (index, byteLength, from) {
-    this._updateStats(this.uploadSpeedometer, this.uploadStats, index, byteLength, from)
+    this._updateStats(this._uploadSpeedometer, this.uploadStats, index, byteLength, from)
   }
 
   _onDownload (index, byteLength, from) {
-    this._updateStats(this.downloadSpeedometer, this.downloadStats, index, byteLength, from)
+    this._updateStats(this._downloadSpeedometer, this.downloadStats, index, byteLength, from)
   }
 
   _updateStats (speed, stats, index, byteLength) {
@@ -217,11 +218,11 @@ class BlobMonitor extends BlobRef {
   }
 
   get downloadSpeed () {
-    return this.downloadSpeedometer()
+    return this._downloadSpeedometer()
   }
 
   get uploadSpeed () {
-    return this.uploadSpeedometer()
+    return this._uploadSpeedometer()
   }
 
   get peers () {
@@ -229,7 +230,7 @@ class BlobMonitor extends BlobRef {
   }
 
   async _gc () {
-    if (this.timer) clearInterval(this.timers)
+    if (this._timer) clearInterval(this.timers)
 
     if (this.core) {
       this.core.off('upload', this._boundOnUpload)
