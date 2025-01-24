@@ -81,15 +81,16 @@ class BlobRef extends ReadyResource {
   }
 
   async _getBlob () {
-    const info = toInfo(this.key, this.blob, null, this.filename, this.version)
+    const info = toInfo(this.key, this.blob, this.filename, this.version)
     const core = await this.server._getCore(this.key, info, true)
     if (core === null) return
 
     this.core = core
     if (this.blob) return
-
+    info.drive = core.key
     let result = null
     try {
+      console.log(this.core.length)
       result = await resolveDriveFilename(this.core, this.filename, this.version)
     } catch {}
 
@@ -128,7 +129,8 @@ class BlobDownloader extends BlobRef {
   }
 
   async done () {
-    await this.opening
+    await this.ready()
+    if (!this.range) return null
     await this.range.done()
     await this.close()
   }
@@ -209,9 +211,7 @@ class BlobMonitor extends BlobRef {
   }
 
   _updateStats (speed, stats, index, byteLength) {
-    if (!stats.startTime) stats.startTime = Date.now()
     if (!isWithinRange(index, this.blob)) return
-
     if (!stats.startTime) stats.startTime = Date.now()
 
     stats.speed = speed(byteLength)
@@ -563,13 +563,13 @@ module.exports = class HypercoreBlobServer {
   }
 
   async clear (key, opts = {}) {
-    const { blob = null, drive = null, filename = null, version = 0 } = opts
+    const { blob = null, filename = null, version = 0 } = opts
 
     if (!blob && !filename) {
       throw new Error('Must specify a filename or blob')
     }
 
-    const core = await this._getCore(key, toInfo(key, blob, drive, filename, version), false)
+    const core = await this._getCore(key, toInfo(key, blob, filename, version), false)
     if (core === null) return null
 
     if (blob) {
@@ -590,7 +590,7 @@ module.exports = class HypercoreBlobServer {
   }
 }
 
-function toInfo (key, blob, drive, filename, version) {
+function toInfo (key, blob, filename, version) {
   return {
     head: null,
     range: null,

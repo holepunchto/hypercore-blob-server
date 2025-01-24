@@ -186,11 +186,10 @@ test.solo('can monitor file, replication', async function (t) {
 
   const swarm1 = new Hyperswarm({ bootstrap })
   const swarm2 = new Hyperswarm({ bootstrap })
-  const encryptionKey = b4a.alloc(32)
 
   const bytes = 102400000 // make the file bigger
   const buffer = Buffer.alloc(bytes, '0')
-  const drive = testHyperdrive(t, store, { encryptionKey })
+  const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', buffer)
 
   swarm1.on('connection', c => {
@@ -204,11 +203,7 @@ test.solo('can monitor file, replication', async function (t) {
   await swarm1.join(drive.discoveryKey).flushed()
   await swarm2.join(drive.discoveryKey).flushed()
 
-  const server = testBlobServer(t, store2, {
-    resolve: function (key) {
-      return { key, encryptionKey }
-    }
-  })
+  const server = testBlobServer(t, store2)
   await server.listen()
 
   // Why is this needed? Should be?
@@ -218,8 +213,6 @@ test.solo('can monitor file, replication', async function (t) {
   monitor.on('update', stats => {
     console.log(JSON.stringify(stats))
   })
-
-  await server.clear(drive.key, { filename: '/file.txt' })
 
   const dl = server.download(drive.key, { filename: '/file.txt' })
   await dl.done()
