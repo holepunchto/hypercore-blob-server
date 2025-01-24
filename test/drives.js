@@ -219,9 +219,7 @@ test.solo('can monitor file, replication', async function (t) {
     console.log(JSON.stringify(stats))
   })
 
-  await server.clear(drive.key, {
-    filename: '/file.txt'
-  })
+  await server.clear(drive.key, { filename: '/file.txt' })
 
   const dl = server.download(drive.key, { filename: '/file.txt' })
   await dl.done()
