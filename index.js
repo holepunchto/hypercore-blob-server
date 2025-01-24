@@ -90,7 +90,6 @@ class BlobRef extends ReadyResource {
     info.drive = core.key
     let result = null
     try {
-      console.log(this.core.length)
       result = await resolveDriveFilename(this.core, this.filename, this.version)
     } catch {}
 
