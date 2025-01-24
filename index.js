@@ -230,7 +230,7 @@ class BlobMonitor extends BlobRef {
     return this.core.peers.length
   }
 
-  async _gc () {
+  _gc () {
     if (this._timer) clearInterval(this._timer)
 
     if (this.core) {
