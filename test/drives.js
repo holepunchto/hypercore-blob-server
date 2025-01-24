@@ -212,7 +212,7 @@ test.solo('can monitor file, replication', async function (t) {
   await server.listen()
 
   // Why is this needed? Should be?
-  await request(server, drive.key, { filename: '/file.txt', version: drive.version })
+  // await request(server, drive.key, { filename: '/file.txt', version: drive.version })
 
   const monitor = server.monitor(drive.key, { filename: '/file.txt' })
   monitor.on('update', stats => {
