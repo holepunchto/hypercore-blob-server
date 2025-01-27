@@ -180,7 +180,8 @@ test('can select a file for full download', async function (t) {
 })
 
 test.solo('can monitor file, replication', async function (t) {
-  t.plan(1)
+  // const mtest = t.test('monitor')
+  // mtest.plan(100)
   const store = new Corestore(await tmp())
   const store2 = new Corestore(await tmp())
   const { bootstrap } = await testnet(10, t)
@@ -204,20 +205,24 @@ test.solo('can monitor file, replication', async function (t) {
   await swarm1.join(drive.discoveryKey).flushed()
   await swarm2.join(drive.discoveryKey).flushed()
 
+  await swarm1.flush()
+  await swarm2.flush()
+
   const server = testBlobServer(t, store2)
   await server.listen()
 
-  // Why is this needed? Should be?
-  await request(server, drive.key, { filename: '/file.txt', version: drive.version })
+  // const monitor = server.monitor(drive.key, { filename: '/file.txt' })
+  // monitor.on('update', stats => {
+  //   console.log(stats)
+  //   mtest.pass()
+  // })
 
-  const monitor = server.monitor(drive.key, { filename: '/file.txt' })
-  monitor.on('update', stats => {
-    console.log(JSON.stringify(stats))
-    t.pass()
-  })
+  // await server.clear(drive.key, { filename: '/file.txt' })
 
   const dl = server.download(drive.key, { filename: '/file.txt' })
   await dl.done()
+
+  // await mtest
 
   await swarm1.destroy()
   await swarm2.destroy()

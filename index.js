@@ -128,7 +128,6 @@ class BlobDownloader extends BlobRef {
 
   async done () {
     await this.ready()
-    if (!this.range) return null
     await this.range.done()
     await this.close()
   }
@@ -187,7 +186,6 @@ class BlobMonitor extends BlobRef {
       this.stats.downloadStats.blocks = this.downloadStats.blocks
     }
 
-    // peers updated here
     if (this.peers !== this.stats.peers) {
       changed = true
       this.stats.peers = this.stats.uploadStats.peers = this.stats.downloadStats.peers = this.peers
@@ -197,7 +195,23 @@ class BlobMonitor extends BlobRef {
   }
 
   _sendUpdate () {
-    if (this._hasChanged()) this.emit('update', this.stats)
+    if (this.hasChanged()) {
+      const stats = {
+        blob: this.blob,
+        peers: this.stats.peers,
+        uploadStats: {
+          peers: this.stats.peers,
+          speed: this.stats.uploadStats.speed,
+          blocks: this.stats.uploadStats.blocks
+        },
+        downloadStats: {
+          peers: this.stats.peers,
+          speed: this.stats.downloadStats.speed,
+          blocks: this.stats.downloadStats.blocks
+        }
+      }
+      this.emit('update', stats)
+    }
   }
 
   _onUpload (index, byteLength, from) {
