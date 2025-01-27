@@ -195,7 +195,7 @@ class BlobMonitor extends BlobRef {
   }
 
   _sendUpdate () {
-    if (this.hasChanged()) {
+    if (this._hasChanged()) {
       const stats = {
         blob: this.blob,
         peers: this.stats.peers,
