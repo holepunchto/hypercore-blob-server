@@ -180,6 +180,7 @@ test('can select a file for full download', async function (t) {
 })
 
 test.solo('can monitor file, replication', async function (t) {
+  t.plan(1)
   const store = new Corestore(await tmp())
   const store2 = new Corestore(await tmp())
   const { bootstrap } = await testnet(10, t)
@@ -207,11 +208,12 @@ test.solo('can monitor file, replication', async function (t) {
   await server.listen()
 
   // Why is this needed? Should be?
-  // await request(server, drive.key, { filename: '/file.txt', version: drive.version })
+  await request(server, drive.key, { filename: '/file.txt', version: drive.version })
 
   const monitor = server.monitor(drive.key, { filename: '/file.txt' })
   monitor.on('update', stats => {
     console.log(JSON.stringify(stats))
+    t.pass()
   })
 
   const dl = server.download(drive.key, { filename: '/file.txt' })
