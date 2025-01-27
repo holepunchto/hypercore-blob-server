@@ -127,7 +127,7 @@ class BlobDownloader extends BlobRef {
   }
 
   async done () {
-    await this.ready()
+    await this.opening
     await this.range.done()
     await this.close()
   }
