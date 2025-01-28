@@ -179,9 +179,10 @@ test('can select a file for full download', async function (t) {
   await dl.done()
 })
 
-test.solo('can monitor file, replication', async function (t) {
-  // const mtest = t.test('monitor')
-  // mtest.plan(100)
+test.skip('can monitor file download', async function (t) {
+  const mTest = t.test('monitor test')
+  mTest.plan(1)
+
   const store = new Corestore(await tmp())
   const store2 = new Corestore(await tmp())
   const { bootstrap } = await testnet(10, t)
@@ -193,6 +194,7 @@ test.solo('can monitor file, replication', async function (t) {
   const buffer = Buffer.alloc(bytes, '0')
   const drive = testHyperdrive(t, store)
   await drive.put('/file.txt', buffer)
+  const v = drive.version
 
   swarm1.on('connection', c => {
     store.replicate(c)
@@ -211,18 +213,110 @@ test.solo('can monitor file, replication', async function (t) {
   const server = testBlobServer(t, store2)
   await server.listen()
 
-  // const monitor = server.monitor(drive.key, { filename: '/file.txt' })
-  // monitor.on('update', stats => {
-  //   console.log(stats)
-  //   mtest.pass()
-  // })
+  const monitor = server.monitor(drive.key, { filename: '/file.txt', version: v })
 
-  // await server.clear(drive.key, { filename: '/file.txt' })
+  const downloadStats = []
+  monitor.on('update', _ => {
+    downloadStats.push(structuredClone(monitor.stats.downloadStats))
+    if (monitor.stats.downloadStats.speed === 0) {
+      mTest.pass()
+    }
+  })
 
-  const dl = server.download(drive.key, { filename: '/file.txt' })
+  const dl = server.download(drive.key, { filename: '/file.txt', version: v })
   await dl.done()
 
-  // await mtest
+  await mTest
+  monitor.close()
+  t.is(downloadStats.length > 0, true)
+  // last event has 0 speed and total blocks
+  t.alike(downloadStats.pop(), { peers: 1, speed: 0, blocks: 1563 })
+  // all stats except last should have speed
+  t.is(downloadStats.every(stats => stats.speed > 0), true)
+
+  await swarm1.destroy()
+  await swarm2.destroy()
+  await drive.close()
+})
+
+test('can monitor file download -> clear -> download', async function (t) {
+  const mTest = t.test('monitor test')
+  mTest.plan(1)
+  const cTest = t.test('monitor test, after clear')
+  cTest.plan(1)
+
+  const store = new Corestore(await tmp())
+  const store2 = new Corestore(await tmp())
+  const { bootstrap } = await testnet(10, t)
+
+  const swarm1 = new Hyperswarm({ bootstrap })
+  const swarm2 = new Hyperswarm({ bootstrap })
+
+  const bytes = 102400000 // make the file bigger
+  const buffer = Buffer.alloc(bytes, '0')
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', buffer)
+  const v = drive.version
+
+  swarm1.on('connection', c => {
+    store.replicate(c)
+  })
+
+  swarm2.on('connection', c => {
+    store2.replicate(c)
+  })
+
+  await swarm1.join(drive.discoveryKey).flushed()
+  await swarm2.join(drive.discoveryKey).flushed()
+
+  await swarm1.flush()
+  await swarm2.flush()
+
+  const server = testBlobServer(t, store2)
+  await server.listen()
+
+  const monitor = server.monitor(drive.key, { filename: '/file.txt', version: v })
+
+  let downloadStats = []
+  monitor.on('update', _ => {
+    console.log(monitor.stats.downloadStats)
+    downloadStats.push(structuredClone(monitor.stats.downloadStats))
+    if (monitor.stats.downloadStats.speed === 0) {
+      // should be called again after clear
+
+      if (!mTest.isDone) {
+        mTest.pass()
+      } else {
+        cTest.pass()
+      }
+    }
+  })
+
+  const dl = server.download(drive.key, { filename: '/file.txt', version: v })
+  await dl.done()
+
+  await mTest
+  t.is(downloadStats.length > 0, true)
+  // last event has 0 speed and total blocks
+  t.alike(downloadStats.pop(), { peers: 1, speed: 0, blocks: 1563 })
+  // all stats except last should have speed
+  t.is(downloadStats.every(stats => stats.speed > 0), true)
+
+  downloadStats = []
+  // clear range
+  await server.clear(drive.key, { filename: '/file.txt', version: v })
+
+  // download again
+  const dl2 = server.download(drive.key, { filename: '/file.txt', version: v })
+  await dl2.done()
+
+  await cTest
+  monitor.close()
+  t.is(downloadStats.length > 0, true)
+  // last event has 0 speed and total blocks
+  t.alike(downloadStats.pop(), { peers: 1, speed: 0, blocks: 1563 * 2 }) // should be twice the number?
+  // all stats except last should have speed
+  t.is(downloadStats.every(stats => stats.speed > 0), true)
 
   await swarm1.destroy()
   await swarm2.destroy()
