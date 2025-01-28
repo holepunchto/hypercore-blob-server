@@ -150,8 +150,8 @@ class BlobMonitor extends BlobRef {
         blocks: 0
       }
     }
-    this.uploadStats = { ...this.stats.uploadStats }
-    this.downloadStats = { ...this.stats.downloadStats }
+    this._uploadStats = { blocks: 0 }
+    this._downloadStats = { blocks: 0 }
 
     this._uploadSpeedometer = speedometer()
     this._downloadSpeedometer = speedometer()
@@ -174,21 +174,24 @@ class BlobMonitor extends BlobRef {
   _hasChanged () {
     let changed = false
 
-    if (this.uploadSpeed !== this.stats.uploadStats.speed || this.downloadSpeed !== this.stats.downloadStats.speed) {
+    const upSpeed = this._uploadSpeedometer()
+    const downSpeed = this._downloadSpeedometer()
+    if (upSpeed !== this.stats.uploadStats.speed || this.downloadSpeed !== this.stats.downloadStats.speed) {
       changed = true
-      this.stats.uploadStats.speed = this.uploadSpeed
-      this.stats.downloadStats.speed = this.downloadSpeed
+      this.stats.uploadStats.speed = upSpeed
+      this.stats.downloadStats.speed = downSpeed
     }
 
-    if (this.uploadStats.blocks !== this.stats.uploadStats.blocks || this.downloadStats.blocks !== this.stats.downloadStats.blocks) {
+    if (this._uploadStats.blocks !== this.stats.uploadStats.blocks || this._downloadStats.blocks !== this.stats.downloadStats.blocks) {
       changed = true
-      this.stats.uploadStats.blocks = this.uploadStats.blocks
-      this.stats.downloadStats.blocks = this.downloadStats.blocks
+      this.stats.uploadStats.blocks = this._uploadStats.blocks
+      this.stats.downloadStats.blocks = this._downloadStats.blocks
     }
 
-    if (this.peers !== this.stats.peers) {
+    const peers = this.core.peers.length
+    if (peers !== this.stats.peers) {
       changed = true
-      this.stats.peers = this.stats.uploadStats.peers = this.stats.downloadStats.peers = this.peers
+      this.stats.peers = this.stats.uploadStats.peers = this.stats.downloadStats.peers = peers
     }
 
     return changed
@@ -201,31 +204,19 @@ class BlobMonitor extends BlobRef {
   }
 
   _onUpload (index, byteLength, from) {
-    this._updateStats(this._uploadSpeedometer, this.uploadStats, index, byteLength, from)
+    this._updateStats(this._uploadSpeedometer, this._uploadStats, index, byteLength, from)
   }
 
   _onDownload (index, byteLength, from) {
-    this._updateStats(this._downloadSpeedometer, this.downloadStats, index, byteLength, from)
+    this._updateStats(this._downloadSpeedometer, this._downloadStats, index, byteLength, from)
   }
 
-  _updateStats (speed, stats, index, byteLength) {
+  _updateStats (speedometer, stats, index, byteLength) {
     if (!isWithinRange(index, this.blob)) return
     if (!stats.startTime) stats.startTime = Date.now()
 
-    stats.speed = speed(byteLength)
+    speedometer(byteLength)
     stats.blocks++
-  }
-
-  get downloadSpeed () {
-    return this._downloadSpeedometer()
-  }
-
-  get uploadSpeed () {
-    return this._uploadSpeedometer()
-  }
-
-  get peers () {
-    return this.core.peers.length
   }
 
   _gc () {
