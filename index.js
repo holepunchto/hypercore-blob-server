@@ -213,7 +213,6 @@ class BlobMonitor extends BlobRef {
 
   _updateStats (speedometer, stats, index, byteLength) {
     if (!isWithinRange(index, this.blob)) return
-    if (!stats.startTime) stats.startTime = Date.now()
 
     speedometer(byteLength)
     stats.blocks++
