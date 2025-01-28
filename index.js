@@ -7,7 +7,9 @@ const crypto = require('hypercore-crypto')
 const ByteStream = require('hypercore-byte-stream')
 const getMimeType = require('get-mime-type')
 const { isEnded } = require('streamx')
+const ReadyResource = require('ready-resource')
 const resolveDriveFilename = require('./drive')
+const speedometer = require('speedometer')
 
 const blobId = {
   preencode (state, b) {
@@ -32,8 +34,10 @@ const blobId = {
   }
 }
 
-class BlobDownloader {
+class BlobRef extends ReadyResource {
   constructor (server, key, opts = {}) {
+    super()
+
     const { blob = null, filename = null, version = 0 } = opts
 
     if (!blob && !filename) {
@@ -46,53 +50,43 @@ class BlobDownloader {
     this.filename = filename
     this.version = version
     this.core = null
-    this.range = null
 
-    this.opening = this._open()
-    this.opening.catch(noop)
+    this.ready().catch(noop)
   }
 
   async _open () {
     await this._getBlob()
     if (!this.core || !this.blob) return
-    this.range = this.core.download({
-      start: this.blob.blockOffset,
-      length: this.blob.blockLength
-    })
+    this._oncore()
   }
 
-  async done () {
-    await this.opening
-    await this.range.done()
-    await this.close()
+  _oncore () {
+    // overwrite me
   }
 
-  async close () {
+  _gc () {
+    // gc
+  }
+
+  close () {
     if (this.core) this.core.close()
+    return super.close()
+  }
 
-    try {
-      await this.opening
-    } catch {}
-
-    if (this.core) {
-      await this.core.close()
-      this.core = null
-    }
-
-    if (this.range) {
-      this.range.destroy()
-      this.range = null
-    }
+  async _close () {
+    if (!this.core) return
+    await this.core.close()
+    this.core = null
+    this._gc()
   }
 
   async _getBlob () {
-    const info = toInfo(this.key, this.blob, null, this.filename, this.version)
+    const info = toInfo(this.key, this.blob, this.filename, this.version)
     const core = await this.server._getCore(this.key, info, true)
     if (core === null) return
 
     this.core = core
     if (this.blob) return
-
     let result = null
     try {
       result = await resolveDriveFilename(this.core, this.filename, this.version)
@@ -108,6 +102,128 @@ class BlobDownloader {
       this.blob = result.blob
     } else {
       this.core = null
+    }
+  }
+}
+
+class BlobDownloader extends BlobRef {
+  constructor (server, key, opts) {
+    super(server, key, opts)
+    this.range = null
+  }
+
+  _oncore () {
+    this.range = this.core.download({
+      start: this.blob.blockOffset,
+      length: this.blob.blockLength
+    })
+  }
+
+  _gc () {
+    if (this.range) {
+      this.range.destroy()
+      this.range = null
+    }
+  }
+
+  async done () {
+    await this.opening
+    await this.range.done()
+    await this.close()
+  }
+}
+
+class BlobMonitor extends BlobRef {
+  constructor (server, key, opts) {
+    super(server, key, opts)
+    this.stats = {
+      blob: this.blob,
+      peers: 0,
+      uploadStats: {
+        peers: 0,
+        speed: 0,
+        blocks: 0
+      },
+      downloadStats: {
+        peers: 0,
+        speed: 0,
+        blocks: 0
+      }
+    }
+    this._uploadStats = { blocks: 0 }
+    this._downloadStats = { blocks: 0 }
+
+    this._uploadSpeedometer = speedometer()
+    this._downloadSpeedometer = speedometer()
+    this._timer = null
+    this._interval = opts.interval ?? 1000
+
+    this._boundOnUpload = this._onUpload.bind(this)
+    this._boundOnDownload = this._onDownload.bind(this)
+    this._boundSendUpdate = this._sendUpdate.bind(this)
+  }
+
+  _oncore () {
+    this._timer = setInterval(this._boundSendUpdate, this._interval)
+
+    this.core.on('upload', this._boundOnUpload)
+    this.core.on('download', this._boundOnDownload)
+  }
+
+  // has side effect
+  _hasChanged () {
+    let changed = false
+
+    const upSpeed = this._uploadSpeedometer()
+    const downSpeed = this._downloadSpeedometer()
+    if (upSpeed !== this.stats.uploadStats.speed || downSpeed !== this.stats.downloadStats.speed) {
+      changed = true
+      this.stats.uploadStats.speed = upSpeed
+      this.stats.downloadStats.speed = downSpeed
+    }
+
+    if (this._uploadStats.blocks !== this.stats.uploadStats.blocks || this._downloadStats.blocks !== this.stats.downloadStats.blocks) {
+      changed = true
+      this.stats.uploadStats.blocks = this._uploadStats.blocks
+      this.stats.downloadStats.blocks = this._downloadStats.blocks
+    }
+
+    const peers = this.core.peers.length
+    if (peers !== this.stats.peers) {
+      changed = true
+      this.stats.peers = this.stats.uploadStats.peers = this.stats.downloadStats.peers = peers
+    }
+
+    return changed
+  }
+
+  _sendUpdate () {
+    if (this._hasChanged()) {
+      this.emit('update')
+    }
+  }
+
+  _onUpload (index, byteLength, from) {
+    this._updateStats(this._uploadSpeedometer, this._uploadStats, index, byteLength, from)
+  }
+
+  _onDownload (index, byteLength, from) {
+    this._updateStats(this._downloadSpeedometer, this._downloadStats, index, byteLength, from)
+  }
+
+  _updateStats (speedometer, stats, index, byteLength) {
+    if (!isWithinRange(index, this.blob)) return
+
+    speedometer(byteLength)
+    stats.blocks++
+  }
+
+  _gc () {
+    if (this._timer) clearInterval(this._timer)
+
+    if (this.core) {
+      this.core.off('upload', this._boundOnUpload)
+      this.core.off('download', this._boundOnDownload)
     }
   }
 }
@@ -426,18 +542,22 @@ module.exports = class HypercoreBlobServer {
     return url ? `${protocol}://${host}${p}${path}` : path
   }
 
-  download (key, opts = {}) {
+  monitor (key, opts) {
+    return new BlobMonitor(this, key, opts)
+  }
+
+  download (key, opts) {
     return new BlobDownloader(this, key, opts)
   }
 
   async clear (key, opts = {}) {
-    const { blob = null, drive = null, filename = null, version = 0 } = opts
+    const { blob = null, filename = null, version = 0 } = opts
 
     if (!blob && !filename) {
       throw new Error('Must specify a filename or blob')
     }
 
-    const core = await this._getCore(key, toInfo(key, blob, drive, filename, version), false)
+    const core = await this._getCore(key, toInfo(key, blob, filename, version), false)
     if (core === null) return null
 
     if (blob) {
@@ -458,7 +578,7 @@ module.exports = class HypercoreBlobServer {
   }
 }
 
-function toInfo (key, blob, drive, filename, version) {
+function toInfo (key, blob, filename, version) {
   return {
     head: null,
     range: null,
@@ -521,6 +641,10 @@ function parseRange (range) {
     start: Number(r[0] || 0),
     end: Number(r[1] === '' ? -1 : r[1])
   }
+}
+
+function isWithinRange (index, { blockOffset, blockLength }) {
+  return index >= blockOffset && index < blockOffset + blockLength
 }
 
 function noop () {}
