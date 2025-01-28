@@ -176,7 +176,7 @@ class BlobMonitor extends BlobRef {
 
     const upSpeed = this._uploadSpeedometer()
     const downSpeed = this._downloadSpeedometer()
-    if (upSpeed !== this.stats.uploadStats.speed || this.downloadSpeed !== this.stats.downloadStats.speed) {
+    if (upSpeed !== this.stats.uploadStats.speed || downSpeed !== this.stats.downloadStats.speed) {
       changed = true
       this.stats.uploadStats.speed = upSpeed
       this.stats.downloadStats.speed = downSpeed
