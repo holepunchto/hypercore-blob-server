@@ -179,7 +179,7 @@ test('can select a file for full download', async function (t) {
   await dl.done()
 })
 
-test.skip('can monitor file download', async function (t) {
+test('can monitor file download', async function (t) {
   const mTest = t.test('monitor test')
   mTest.plan(1)
 
