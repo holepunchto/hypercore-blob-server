@@ -179,7 +179,7 @@ test('can select a file for full download', async function (t) {
   await dl.done()
 })
 
-test.solo('can monitor file download', async function (t) {
+test('can monitor file download', async function (t) {
   const mTest = t.test('monitor test')
   mTest.plan(1)
 
@@ -217,7 +217,6 @@ test.solo('can monitor file download', async function (t) {
 
   const downloadStats = []
   monitor.on('update', _ => {
-    console.log((monitor.stats.downloadStats))
     downloadStats.push(structuredClone(monitor.stats.downloadStats))
     if (monitor.stats.downloadStats.speed === 0) {
       mTest.pass()
@@ -280,7 +279,6 @@ test('can monitor file download -> clear -> download', async function (t) {
 
   let downloadStats = []
   monitor.on('update', _ => {
-    console.log(monitor.stats.downloadStats)
     downloadStats.push(structuredClone(monitor.stats.downloadStats))
     if (monitor.stats.downloadStats.speed === 0) {
       // should be called again after clear
