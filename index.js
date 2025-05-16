@@ -438,8 +438,9 @@ module.exports = class HypercoreBlobServer {
     if (this.suspending) await this.suspending
     this.suspending = null
     if (this.server !== null) {
+      const server = this.server
       await this._closeAll(true)
-      this.server.ref()
+      server.ref()
     }
     return this._listen()
   }
@@ -454,6 +455,7 @@ module.exports = class HypercoreBlobServer {
           waiting++
         }
         this.server.unref()
+        this.server = null
       }
 
       for (const c of this.connections) {
