@@ -30,6 +30,7 @@
     "speedometer": "^1.1.0",
     "streamx": "^2.21.1",
     "sub-encoder": "^2.1.3",
+    "unix-path-resolve": "^1.0.2",
     "z32": "^1.1.0"
   },
   "devDependencies": {
