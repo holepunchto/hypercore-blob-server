@@ -281,7 +281,15 @@ module.exports = class HypercoreBlobServer {
       if (!resolved) return null
 
       const { key = k, encryptionKey } = resolved
-      const core = this.store.get({ key, active, wait: active })
+
+      let core = this.store.get({ key, active, wait: active })
+
+      if (await isAutobaseBatch(core)) {
+        const batch = core.session({ name: 'batch', writable: false })
+        await batch.ready()
+        await core.close()
+        core = batch
+      }
 
       if (encryptionKey) {
         await core.setEncryptionKey(encryptionKey)
@@ -629,6 +637,17 @@ function decodeRequest (req) {
   } catch {
     return null
   }
+}
+
+// should prop live in autobase but also ok here
+async function isAutobaseBatch (core) {
+  await core.ready()
+  const rx = core.state.storage.read()
+  const promise = rx.getSessions()
+  rx.tryFlush()
+  const sessions = await promise
+  if (!sessions || !sessions.length) return false
+  return sessions[0].name === 'batch'
 }
 
 function defaultResolve (key, info) {
