@@ -323,7 +323,7 @@ module.exports = class HypercoreBlobServer {
 
     const info = decodeRequest(req)
 
-    if (info === null || info.token !== this.token) {
+    if (this.token !== '' && (info === null || info.token !== this.token)) {
       res.statusCode = 404
       res.end()
       return
