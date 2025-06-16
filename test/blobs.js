@@ -163,3 +163,25 @@ test('server could clear blobs', async function (t) {
   t.is(await core.get(1, { wait: false }), null)
   t.alike(await core.get(2, { wait: false }), b4a.from('efg'))
 })
+
+test('support blob links', async function (t) {
+  const store = new Corestore(await tmp())
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  const url1 = server.getBlobLink(Buffer.from('hello world'))
+  const url2 = server.getBlobLink(Buffer.from('hej verden'))
+
+  {
+    const res = await fetch(url1)
+    t.is(res.status, 200)
+    t.is(await res.text(), 'hello world')
+  }
+
+  {
+    const res = await fetch(url2)
+    t.is(res.status, 200)
+    t.is(await res.text(), 'hej verden')
+  }
+})

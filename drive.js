@@ -4,6 +4,7 @@ const Hyperbee = require('hyperbee')
 const Hypercore = require('hypercore')
 const crypto = require('hypercore-crypto')
 const SubEncoder = require('sub-encoder')
+const unixPathResolve = require('unix-path-resolve')
 
 const filesEncoding = new SubEncoder('files', 'utf-8')
 const [BLOBS] = crypto.namespace('hyperdrive', 1)
@@ -15,7 +16,7 @@ async function resolveDriveFilename (core, key, version) {
 
   let entry = null
   try {
-    entry = await bee.get(key, { keyEncoding: filesEncoding })
+    entry = await bee.get(unixPathResolve('/', key), { keyEncoding: filesEncoding })
   } catch {}
 
   let content = null

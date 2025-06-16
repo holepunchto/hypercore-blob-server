@@ -10,6 +10,7 @@ const { isEnded } = require('streamx')
 const ReadyResource = require('ready-resource')
 const resolveDriveFilename = require('./drive')
 const speedometer = require('speedometer')
+const Xache = require('xache')
 
 const blobId = {
   preencode (state, b) {
@@ -31,6 +32,23 @@ const blobId = {
       byteOffset: c.uint.decode(state),
       byteLength: c.uint.decode(state)
     }
+  }
+}
+
+class BlobCache {
+  constructor (limit) {
+    this.cache = new Xache({ limit })
+    this.pointer = 0
+  }
+
+  add (buffer) {
+    const id = ++this.pointer
+    this.cache.set(id, buffer)
+    return id
+  }
+
+  get (id) {
+    return this.cache.get(id) || null
   }
 }
 
@@ -96,7 +114,7 @@ class BlobRef extends ReadyResource {
 
     if (result !== null) {
       info.key = result.key
-      info.drive = info.key
+      info.drive = this.key
       info.blob = result.blob
       this.core = await this.server._getCore(result.key, info, true)
       this.blob = result.blob
@@ -237,7 +255,8 @@ module.exports = class HypercoreBlobServer {
       token = crypto.randomBytes(32),
       protocol = 'http',
       anyPort = true,
-      resolve = defaultResolve
+      resolve = defaultResolve,
+      blobCacheLimit = 64
     } = opts
 
     this.store = store
@@ -248,6 +267,7 @@ module.exports = class HypercoreBlobServer {
     this.anyPort = anyPort
     this.protocol = protocol
     this.server = null
+    this.blobCache = new BlobCache(blobCacheLimit)
     this.connections = new Set()
     this.resolve = resolve
 
@@ -313,6 +333,11 @@ module.exports = class HypercoreBlobServer {
       return
     }
 
+    if (info.pointer) {
+      this._onpointer(info, res)
+      return
+    }
+
     if (info.blob) {
       this._onblob(info, res)
       return
@@ -364,6 +389,20 @@ module.exports = class HypercoreBlobServer {
     res.statusCode = 307
     res.setHeader('Location', path)
     res.end()
+  }
+
+  _onpointer (info, res) {
+    const buffer = this.blobCache.get(info.pointer)
+
+    if (buffer === null) {
+      res.statusCode = 404
+      res.end()
+      return
+    }
+
+    res.setHeader('Content-Type', info.type)
+    res.setHeader('Content-Length', '' + buffer.byteLength)
+    res.end(buffer)
   }
 
   async _onblob (info, res) {
@@ -442,8 +481,9 @@ module.exports = class HypercoreBlobServer {
     if (this.suspending) await this.suspending
     this.suspending = null
     if (this.server !== null) {
+      const server = this.server
       await this._closeAll(true)
-      this.server.ref()
+      server.ref()
     }
     return this._listen()
   }
@@ -458,6 +498,7 @@ module.exports = class HypercoreBlobServer {
           waiting++
         }
         this.server.unref()
+        this.server = null
       }
 
       for (const c of this.connections) {
@@ -507,6 +548,11 @@ module.exports = class HypercoreBlobServer {
     return link.replace(/:\d+\//, ':' + this.port + '/').replace(/token=([^&]+)/, 'token=' + this.token)
   }
 
+  getBlobLink (buffer, opts = {}) {
+    const pointer = this.blobCache.add(buffer)
+    return this.getLink(null, { ...opts, pointer })
+  }
+
   getLink (key, opts = {}) {
     const {
       host = this.host,
@@ -518,13 +564,14 @@ module.exports = class HypercoreBlobServer {
       drive = null,
       blob = null,
       url = true,
+      pointer = 0,
       mimetype = filename ? getMimeType(filename) : 'application/octet-stream',
       mimeType = mimetype,
       type = mimeType
     } = opts
 
-    if (!blob && !filename) {
-      throw new Error('Must specify a filename or blob')
+    if (!blob && !filename && !pointer) {
+      throw new Error('Must specify a filename, blob, or pointer')
     }
 
     const p = (protocol === 'http' && port === 80)
@@ -533,7 +580,8 @@ module.exports = class HypercoreBlobServer {
         ? ''
         : ':' + port
 
-    const k = typeof key === 'string' ? key : HypercoreID.encode(key)
+    const k = key ? '?key=' + (typeof key === 'string' ? key : HypercoreID.encode(key)) : ''
+    const ptr = pointer ? (key ? '&' : '?') + 'pointer=' + pointer : ''
     const b = blob ? '&blob=' + z32.encode(c.encode(blobId, blob)) : ''
     const d = drive ? '&drive=' + HypercoreID.encode(drive) : ''
     const v = version ? '&version=' + version : ''
@@ -541,7 +589,7 @@ module.exports = class HypercoreBlobServer {
     const token = this.token ? '&token=' + this.token : ''
     const pathname = filename ? encodeURI(filename.replace(/^\//, '').replace(/\\+/g, '/')) : ''
 
-    const path = `/${pathname}?key=${k}${b}${d}${v}${t}${token}`
+    const path = `/${pathname}${k}${b}${d}${ptr}${v}${t}${token}`
 
     return url ? `${protocol}://${host}${p}${path}` : path
   }
@@ -590,6 +638,7 @@ function toInfo (key, blob, filename, version) {
     key,
     blob,
     drive: blob ? null : key,
+    pointer: 0,
     version,
     filename,
     type: 'application/octet-stream'
@@ -605,6 +654,7 @@ function decodeRequest (req) {
       key: null,
       blob: null,
       drive: null,
+      pointer: 0,
       version: 0,
       filename: null,
       type: 'application/octet-stream'
@@ -620,10 +670,12 @@ function decodeRequest (req) {
       if (p.startsWith('key=')) result.key = HypercoreID.decode(p.slice(4))
       if (p.startsWith('drive=')) result.drive = HypercoreID.decode(p.slice(6))
       if (p.startsWith('blob=')) result.blob = c.decode(blobId, z32.decode(p.slice(5)))
+      if (p.startsWith('pointer=')) result.pointer = parseInt(p.slice(8), 10)
       if (p.startsWith('type=')) result.type = decodeURIComponent(p.slice(5))
       if (p.startsWith('version=')) result.version = Number(p.slice(8))
     }
 
+    if (result.pointer) return result
     if (result.key === null) return null
     if (result.filename === null && result.blob === null) return null
 
