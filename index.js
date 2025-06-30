@@ -606,12 +606,12 @@ module.exports = class HypercoreBlobServer {
     }
 
     const core = await this._getCore(key, toInfo(key, blob, filename, version), false)
-    if (core === null) return null
+    if (core === null) return 0
 
     if (blob) {
-      const cleared = await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
+      await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
       await core.close()
-      return cleared
+      return blob.byteLength
     }
 
     let result = null
@@ -622,7 +622,7 @@ module.exports = class HypercoreBlobServer {
     await core.close()
 
     if (result !== null) return this.clear(result.key, { blob: result.blob, drive: key, filename, version })
-    return null
+    return 0
   }
 }
 
