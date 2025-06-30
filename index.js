@@ -622,7 +622,7 @@ module.exports = class HypercoreBlobServer {
     await core.close()
 
     if (result !== null) return this.clear(result.key, { blob: result.blob, drive: key, filename, version })
-    return null
+    return 0
   }
 }
 
