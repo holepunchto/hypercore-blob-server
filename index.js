@@ -609,9 +609,9 @@ module.exports = class HypercoreBlobServer {
     if (core === null) return null
 
     if (blob) {
-      const cleared = await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
+      await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
       await core.close()
-      return cleared
+      return blob.byteLength
     }
 
     let result = null
