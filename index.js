@@ -606,7 +606,7 @@ module.exports = class HypercoreBlobServer {
     }
 
     const core = await this._getCore(key, toInfo(key, blob, filename, version), false)
-    if (core === null) return null
+    if (core === null) return 0
 
     if (blob) {
       await core.clear(blob.blockOffset, blob.blockOffset + blob.blockLength)
