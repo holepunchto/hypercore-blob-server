@@ -141,7 +141,7 @@ test('handle invalid range header', async function (t) {
   t.is(await res.text(), 'Hello World')
 })
 
-test('server could clear blobs', async function (t) {
+test.solo('server could clear blobs', async function (t) {
   const store = new Corestore(await tmp())
 
   const core = store.get({ name: 'test' })
@@ -150,7 +150,7 @@ test('server could clear blobs', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  await server.clear(core.key, {
+  const bytesCleared = await server.clear(core.key, {
     blob: {
       blockOffset: 0,
       blockLength: 2,
@@ -159,6 +159,7 @@ test('server could clear blobs', async function (t) {
     }
   })
 
+  t.is(bytesCleared, 4)
   t.is(await core.get(0, { wait: false }), null)
   t.is(await core.get(1, { wait: false }), null)
   t.alike(await core.get(2, { wait: false }), b4a.from('efg'))
