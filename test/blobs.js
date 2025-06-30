@@ -141,7 +141,7 @@ test('handle invalid range header', async function (t) {
   t.is(await res.text(), 'Hello World')
 })
 
-test.solo('server could clear blobs', async function (t) {
+test('server could clear blobs', async function (t) {
   const store = new Corestore(await tmp())
 
   const core = store.get({ name: 'test' })
