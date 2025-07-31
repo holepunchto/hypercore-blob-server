@@ -70,6 +70,22 @@ test('404 if token is invalid', async function (t) {
   t.is(await res.text(), '')
 })
 
+test('supports disabling token', async function (t) {
+  const store = new Corestore(await tmp())
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store, { token: false })
+  await server.listen()
+
+  const link = server.getLink(drive.key, { filename: '/file.txt' })
+  t.absent(link.match(/token/), 'getLink doesnt include token')
+  const res = await fetch(link)
+  t.is(res.status, 200)
+  t.is(await res.text(), 'Here')
+})
+
 test('sending request while suspended', async function (t) {
   const store = new Corestore(await tmp())
 
