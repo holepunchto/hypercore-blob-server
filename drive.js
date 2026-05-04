@@ -11,7 +11,7 @@ const [BLOBS] = crypto.namespace('hyperdrive', 1)
 
 module.exports = resolveDriveFilename
 
-async function resolveDriveFilename (core, key, version) {
+async function resolveDriveFilename(core, key, version) {
   const bee = new Hyperbee(core, { valueEncoding: 'json', checkout: version })
 
   let entry = null
@@ -37,7 +37,7 @@ async function resolveDriveFilename (core, key, version) {
   return content === null ? null : { key: content, blob: entry.value.blob }
 }
 
-function generateContentKey (m, key) {
+function generateContentKey(m, key) {
   if (!m || m.version < 1) return null
 
   const signers = []
@@ -57,7 +57,7 @@ function generateContentKey (m, key) {
   })
 }
 
-async function loadContentKey (bee) {
+async function loadContentKey(bee) {
   const header = await bee.getHeader()
   return (header.metadata && header.metadata.contentFeed) || null
 }
