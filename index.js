@@ -316,7 +316,7 @@ module.exports = class HypercoreBlobServer {
     }
   }
 
-  async _onrequest(req, res) {
+  _onrequest(req, res) {
     if (req.method !== 'HEAD' && req.method !== 'GET') {
       req.socket.destroy()
       req.statusCode = 400
@@ -459,7 +459,7 @@ module.exports = class HypercoreBlobServer {
     return this.listening
   }
 
-  async suspend() {
+  suspend() {
     if (this.suspending) return this.suspending
     this.suspending = this._suspend()
     return this.suspending
@@ -630,8 +630,9 @@ module.exports = class HypercoreBlobServer {
 
     await core.close()
 
-    if (result !== null)
+    if (result !== null) {
       return this.clear(result.key, { blob: result.blob, drive: key, filename, version })
+    }
     return 0
   }
 }
