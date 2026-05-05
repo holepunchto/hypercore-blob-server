@@ -1,4 +1,4 @@
-# Hypercore-blob-server
+# hypercore-blob-server
 
 HTTP server for streaming hypercore blobs
 
