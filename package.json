@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "bare-http1": "^4.0.2",
-    "compact-encoding": "^2.16.0",
+    "compact-encoding": "^3.0.0",
     "get-mime-type": "^2.0.2",
     "hyperbee": "^2.20.7",
     "hypercore": "^11.0.0",
