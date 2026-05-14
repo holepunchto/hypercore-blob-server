@@ -10,7 +10,7 @@ More flexible successor to [serve-drive](https://github.com/holepunchto/serve-dr
 
 ## Usage
 
-``` js
+```js
 const BlobServer = require('hypercore-blob-server')
 
 // store should be a corestore
@@ -37,6 +37,7 @@ const link = server.getLink(key, {
 `store` - Corestore instance
 
 `options`:
+
 ```js
 {
   port // defaults to 49833,
@@ -47,6 +48,7 @@ const link = server.getLink(key, {
 ```
 
 #### `await server.listen()`
+
 Listen to requests
 
 #### `const link = server.getLink(key, options)`
@@ -56,14 +58,15 @@ Generates the url used to fetch data
 `key` - hypercore or hyperdrive key
 
 `options`:
+
 ```js
 {
   host // custom host
   port // custom port
-  protocol: 'http' | 'https',
-  filename | blob
+  protocol: ('http' | 'https', filename | blob)
 }
 ```
+
 `filename` - hyperdrive filename
 
 `blob` - blob ID in the form of `{ blockOffset, blockLength, byteOffset, byteLength}`
