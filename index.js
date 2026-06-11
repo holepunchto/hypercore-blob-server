@@ -420,6 +420,16 @@ module.exports = class HypercoreBlobServer {
       const end = info.range.end === -1 ? info.blob.byteLength - 1 : Math.min(info.range.end, info.blob.byteLength - 1)
 
       start = info.range.start
+
+      // Invalid range response
+      if (start > length || start > end) {
+        res.statusCode = 416
+        res.setHeader('Content-Range', 'bytes */' + info.blob.byteLength)
+        core.close().catch(noop)
+        res.end()
+        return
+      }
+
       length = end - start + 1
 
       res.statusCode = 206
