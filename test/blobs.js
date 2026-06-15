@@ -60,6 +60,36 @@ test('can get blob from hypercore - multiple blocks', async function (t) {
   t.is(await res.text(), 'Hello World')
 })
 
+test('request bad range', async function (t) {
+  const store = new Corestore(await tmp())
+
+  const blobs = testHyperblobs(t, store)
+
+  const id = await blobs.put(b4a.from('Hello World'))
+
+  const server = testBlobServer(t, store)
+  await server.listen()
+
+  const link = server.getLink(blobs.core.key, { blob: id })
+
+  {
+    const res = await fetch(link, { headers: { range: 'bytes=129-1210' } })
+    t.is(res.status, 416, 'returns 416')
+    t.is(res.headers.get('content-range'), `bytes */${id.byteLength}`, 'returns content-range w/ "*"/length')
+  }
+
+  {
+    const res = await fetch(link, { headers: { range: 'bytes=1337-123' } })
+    t.is(res.status, 416, 'returns 416 for start > end')
+  }
+
+  {
+    const res = await fetch(link, { headers: { range: 'bytes=0-123' } })
+    t.is(res.status, 206, 'returns 206 for end > length')
+    t.is(res.headers.get('content-range'), `bytes 0-${id.byteLength - 1}/${id.byteLength}`, 'returns content-range')
+  }
+})
+
 test('can get a partial blob from hypercore', async function (t) {
   const store = new Corestore(await tmp())
 
