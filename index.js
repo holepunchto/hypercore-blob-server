@@ -256,7 +256,8 @@ module.exports = class HypercoreBlobServer {
       protocol = 'http',
       anyPort = true,
       resolve = defaultResolve,
-      blobCacheLimit = 64
+      blobCacheLimit = 64,
+      sandbox = true
     } = opts
 
     this.store = store
@@ -266,6 +267,7 @@ module.exports = class HypercoreBlobServer {
     this.token = token ? (typeof token === 'string') ? token : z32.encode(token) : ''
     this.anyPort = anyPort
     this.protocol = protocol
+    this.sandbox = sandbox
     this.server = null
     this.blobCache = new BlobCache(blobCacheLimit)
     this.connections = new Set()
@@ -382,6 +384,7 @@ module.exports = class HypercoreBlobServer {
       type: info.type || getMimeType(info.filename)
     })
 
+    if (this.sandbox) res.setHeader('Content-Security-Policy', 'sandbox')
     res.statusCode = 307
     res.setHeader('Location', path)
     res.end()
@@ -396,6 +399,7 @@ module.exports = class HypercoreBlobServer {
       return
     }
 
+    if (this.sandbox) res.setHeader('Content-Security-Policy', 'sandbox')
     res.setHeader('Content-Type', info.type)
     res.setHeader('Content-Length', '' + buffer.byteLength)
     res.end(buffer)
@@ -410,6 +414,7 @@ module.exports = class HypercoreBlobServer {
       return
     }
 
+    if (this.sandbox) res.setHeader('Content-Security-Policy', 'sandbox')
     res.setHeader('Accept-Ranges', 'bytes')
     res.setHeader('Content-Type', info.type)
 
