@@ -14,7 +14,9 @@
     }
   },
   "scripts": {
-    "test": "standard && brittle test/*.js"
+    "format": "prettier . --write",
+    "test": "brittle test/*.js",
+    "lint": "prettier . --check && lunte"
   },
   "dependencies": {
     "bare-http1": "^4.0.2",
@@ -42,6 +44,9 @@
     "hyperdht": "^6.20.1",
     "hyperdrive": "^11.13.3",
     "hyperswarm": "^4.8.4",
+    "lunte": "^1.8.0",
+    "prettier": "^3.8.3",
+    "prettier-config-holepunch": "^2.0.0",
     "standard": "^17.1.2",
     "test-tmp": "^1.3.1"
   },

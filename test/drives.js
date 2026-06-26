@@ -157,11 +157,11 @@ test('can get encrypted blob from hyperdrive while replicating', async function 
   const drive = testHyperdrive(t, store, { encryptionKey })
   await drive.put('/file.txt', 'Here')
 
-  swarm1.on('connection', c => {
+  swarm1.on('connection', (c) => {
     store.replicate(c)
   })
 
-  swarm2.on('connection', c => {
+  swarm2.on('connection', (c) => {
     store2.replicate(c)
   })
 
@@ -219,11 +219,11 @@ test('can monitor file download', async function (t) {
   await drive.put('/file.txt', buffer)
   const v = drive.version
 
-  swarm1.on('connection', c => {
+  swarm1.on('connection', (c) => {
     store.replicate(c)
   })
 
-  swarm2.on('connection', c => {
+  swarm2.on('connection', (c) => {
     store2.replicate(c)
   })
 
@@ -239,7 +239,7 @@ test('can monitor file download', async function (t) {
   const monitor = server.monitor(drive.key, { filename: '/file.txt', version: v })
 
   const downloadStats = []
-  monitor.on('update', _ => {
+  monitor.on('update', (_) => {
     downloadStats.push(structuredClone(monitor.stats.downloadStats))
     if (monitor.stats.downloadStats.speed === 0) {
       mTest.pass()
@@ -255,7 +255,10 @@ test('can monitor file download', async function (t) {
   // last event has 0 speed and total blocks
   t.alike(downloadStats.pop(), { peers: 1, speed: 0, blocks: 1563 })
   // all stats except last should have speed
-  t.is(downloadStats.every(stats => stats.speed > 0), true)
+  t.is(
+    downloadStats.every((stats) => stats.speed > 0),
+    true
+  )
 
   await swarm1.destroy()
   await swarm2.destroy()
@@ -282,11 +285,11 @@ test.skip('can monitor file download -> clear -> download', async function (t) {
   await drive.put('/file.txt', buffer)
   const v = drive.version
 
-  swarm1.on('connection', c => {
+  swarm1.on('connection', (c) => {
     store.replicate(c)
   })
 
-  swarm2.on('connection', c => {
+  swarm2.on('connection', (c) => {
     store2.replicate(c)
   })
 
@@ -302,7 +305,7 @@ test.skip('can monitor file download -> clear -> download', async function (t) {
   const monitor = server.monitor(drive.key, { filename: '/file.txt', version: v })
 
   let downloadStats = []
-  monitor.on('update', _ => {
+  monitor.on('update', (_) => {
     downloadStats.push(structuredClone(monitor.stats.downloadStats))
     if (monitor.stats.downloadStats.speed === 0) {
       // should be called again after clear
@@ -323,7 +326,10 @@ test.skip('can monitor file download -> clear -> download', async function (t) {
   // last event has 0 speed and total blocks
   t.alike(downloadStats.pop(), { peers: 1, speed: 0, blocks: 1563 })
   // all stats except last should have speed
-  t.is(downloadStats.every(stats => stats.speed > 0), true)
+  t.is(
+    downloadStats.every((stats) => stats.speed > 0),
+    true
+  )
 
   downloadStats = []
   // clear range
@@ -339,7 +345,10 @@ test.skip('can monitor file download -> clear -> download', async function (t) {
   // last event has 0 speed and total blocks
   t.alike(downloadStats.pop(), { peers: 1, speed: 0, blocks: 1563 * 2 }) // should be twice the number?
   // all stats except last should have speed
-  t.is(downloadStats.every(stats => stats.speed > 0), true)
+  t.is(
+    downloadStats.every((stats) => stats.speed > 0),
+    true
+  )
 
   await swarm1.destroy()
   await swarm2.destroy()
@@ -356,13 +365,43 @@ test('server could clear files', async function (t) {
   const server = testBlobServer(t, store)
   await server.listen()
 
-  t.is((await drive.blobs.get({ blockOffset: 0, blockLength: 1, byteOffset: 0, byteLength: 4 }, { wait: false })).toString(), 'Here')
-  t.is((await drive.blobs.get({ blockOffset: 1, blockLength: 1, byteOffset: 4, byteLength: 3 }, { wait: false })).toString(), 'IAm')
+  t.is(
+    (
+      await drive.blobs.get(
+        { blockOffset: 0, blockLength: 1, byteOffset: 0, byteLength: 4 },
+        { wait: false }
+      )
+    ).toString(),
+    'Here'
+  )
+  t.is(
+    (
+      await drive.blobs.get(
+        { blockOffset: 1, blockLength: 1, byteOffset: 4, byteLength: 3 },
+        { wait: false }
+      )
+    ).toString(),
+    'IAm'
+  )
 
   await server.clear(drive.key, {
     filename: '/file2.txt'
   })
 
-  t.is((await drive.blobs.get({ blockOffset: 0, blockLength: 1, byteOffset: 0, byteLength: 4 }, { wait: false })).toString(), 'Here')
-  t.is(await drive.blobs.get({ blockOffset: 1, blockLength: 1, byteOffset: 4, byteLength: 3 }, { wait: false }), null)
+  t.is(
+    (
+      await drive.blobs.get(
+        { blockOffset: 0, blockLength: 1, byteOffset: 0, byteLength: 4 },
+        { wait: false }
+      )
+    ).toString(),
+    'Here'
+  )
+  t.is(
+    await drive.blobs.get(
+      { blockOffset: 1, blockLength: 1, byteOffset: 4, byteLength: 3 },
+      { wait: false }
+    ),
+    null
+  )
 })
