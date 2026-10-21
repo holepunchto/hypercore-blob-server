@@ -4,6 +4,7 @@ const tmp = require('test-tmp')
 const Corestore = require('corestore')
 const testnet = require('hyperdht/testnet')
 const Hyperswarm = require('hyperswarm')
+const BlobServer = require('../index.js')
 const { testHyperdrive, testBlobServer, fetch } = require('./helpers')
 
 test('can get file from hyperdrive', async function (t) {
@@ -122,6 +123,45 @@ test('sending request after resume', async function (t) {
   const res = await fetch(link)
   t.is(res.status, 200)
   t.is(await res.text(), 'Here')
+})
+
+test('resume keeps the port and the links', async function (t) {
+  const store = new Corestore(await tmp())
+
+  const drive = testHyperdrive(t, store)
+  await drive.put('/file.txt', 'Here')
+
+  const server = testBlobServer(t, store, { port: 0 })
+  await server.listen()
+
+  const port = server.port
+  const link = server.getLink(drive.key, { filename: '/file.txt' })
+
+  await server.suspend()
+  await server.resume()
+
+  t.is(server.port, port)
+
+  const res = await fetch(link)
+  t.is(res.status, 200)
+  t.is(await res.text(), 'Here')
+})
+
+test('close after suspend releases the port', async function (t) {
+  const store = new Corestore(await tmp())
+
+  const server = new BlobServer(store, { port: 0 })
+  await server.listen()
+
+  const port = server.port
+
+  await server.suspend()
+  await server.close()
+
+  const other = testBlobServer(t, new Corestore(await tmp()), { port, anyPort: false })
+  await other.listen()
+
+  t.is(other.port, port)
 })
 
 test('can get encrypted blob from hyperdrive', async function (t) {
