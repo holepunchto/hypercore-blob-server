@@ -509,7 +509,7 @@ module.exports = class HypercoreBlobServer {
           waiting++
         }
         this.server.unref()
-        this.server = null
+        if (alsoServer) this.server = null
       }
 
       for (const c of this.connections) {
