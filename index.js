@@ -298,12 +298,13 @@ module.exports = class HypercoreBlobServer {
   }
 
   async _getCore (k, info, active) {
+    let core = null
     try {
       const resolved = await this.resolve(k, info)
       if (!resolved) return null
 
       const { key = k, encryptionKey } = resolved
-      const core = this.store.get({ key, active, wait: active })
+      core = this.store.get({ key, active, wait: active })
 
       if (encryptionKey) {
         await core.setEncryptionKey(encryptionKey)
@@ -311,6 +312,7 @@ module.exports = class HypercoreBlobServer {
 
       return core
     } catch {
+      if (core !== null) core.close().catch(noop)
       return null
     }
   }
@@ -325,7 +327,7 @@ module.exports = class HypercoreBlobServer {
 
     const info = decodeRequest(req)
 
-    if (this.token !== '' && (info === null || info.token !== this.token)) {
+    if (info === null || (this.token !== '' && info.token !== this.token)) {
       res.statusCode = 404
       res.end()
       return
@@ -355,8 +357,15 @@ module.exports = class HypercoreBlobServer {
     const core = await this._getCore(info.key, info, true)
 
     if (core === null) {
-      res.statusCode = 404
-      res.end()
+      if (!res.destroyed) {
+        res.statusCode = 404
+        res.end()
+      }
+      return
+    }
+
+    if (res.destroyed) {
+      core.close().catch(noop)
       return
     }
 
@@ -368,6 +377,8 @@ module.exports = class HypercoreBlobServer {
     try {
       result = await resolveDriveFilename(core, info.filename, info.version)
     } catch {}
+
+    if (res.destroyed) return
 
     if (result === null) {
       res.statusCode = 404
@@ -409,11 +420,17 @@ module.exports = class HypercoreBlobServer {
     const core = await this._getCore(info.key, info, true)
 
     if (core === null) {
-      res.statusCode = 404
-      res.end()
+      if (!res.destroyed) {
+        res.statusCode = 404
+        res.end()
+      }
       return
     }
 
+    if (res.destroyed) {
+      core.close().catch(noop)
+      return
+    }
     if (this.sandbox) res.setHeader('Content-Security-Policy', 'sandbox')
     res.setHeader('Accept-Ranges', 'bytes')
     res.setHeader('Content-Type', info.type)
@@ -458,7 +475,10 @@ module.exports = class HypercoreBlobServer {
     rs.pipe(res)
 
     function teardown () {
-      if (!isEnded(rs)) res.destroy()
+      if (!isEnded(rs)) {
+        rs.destroy()
+        res.destroy()
+      }
     }
   }
 

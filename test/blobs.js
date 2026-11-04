@@ -3,6 +3,7 @@ const b4a = require('b4a')
 const tmp = require('test-tmp')
 const Corestore = require('corestore')
 const { testBlobServer, testHyperblobs, fetch } = require('./helpers')
+const http = require('http')
 
 test('can get blob from hypercore', async function (t) {
   const store = new Corestore(await tmp())
@@ -215,4 +216,57 @@ test('support blob links', async function (t) {
     t.is(res.status, 200)
     t.is(await res.text(), 'hej verden')
   }
+})
+
+test('aborting request during async resolve closes core without downloading', async function (t) {
+  const writerStore = new Corestore(await tmp())
+  const readerStore = new Corestore(await tmp())
+  t.teardown(() => readerStore.close())
+  t.teardown(() => writerStore.close())
+
+  const blobs = testHyperblobs(t, writerStore)
+  blobs.blockSize = 65536
+  const id = await blobs.put(b4a.alloc(8 * 1024 * 1024, 'x'))
+
+  const s1 = writerStore.replicate(true)
+  const s2 = readerStore.replicate(false)
+  s1.pipe(s2).pipe(s1)
+  t.teardown(() => {
+    s1.destroy()
+    s2.destroy()
+  })
+
+  const server = testBlobServer(t, readerStore.session(), {
+    resolve: async function (key) {
+      await new Promise(resolve => setTimeout(resolve, 40))
+      return { key }
+    }
+  })
+  await server.listen()
+
+  const link = server.getLink(blobs.core.key, { blob: id })
+  const req = http.get(link, { headers: { range: 'bytes=0-' } })
+  req.on('error', () => {})
+  setTimeout(() => req.destroy(), 10)
+
+  await new Promise(resolve => setTimeout(resolve, 500))
+  const readerCore = readerStore.get({ key: blobs.core.key, active: false })
+  t.teardown(() => readerCore.close())
+  await readerCore.ready()
+
+  t.is(await readerCore.count(0, readerCore.length), 0, 'does not download blocks after aborted resolve')
+})
+
+test('malformed query with token disabled returns 404', async function (t) {
+  const store = new Corestore(await tmp())
+  t.teardown(() => store.close())
+
+  const server = testBlobServer(t, store.session(), { token: null })
+  await server.listen()
+
+  const res1 = await fetch(`http://127.0.0.1:${server.port}/?foo=bar`)
+  t.is(res1.status, 404)
+
+  const res2 = await fetch(`http://127.0.0.1:${server.port}/?key=invalid`)
+  t.is(res2.status, 404)
 })
